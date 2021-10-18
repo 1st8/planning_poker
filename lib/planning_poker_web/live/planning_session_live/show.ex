@@ -9,11 +9,13 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
   def mount(params, _session, socket) do
     id = Map.get(params, "id", "default")
 
-    if connected?(socket) do
-      topic = "planning_sessions:#{id}"
-      Logger.info("Subscribing to #{topic}")
-      Phoenix.PubSub.subscribe(PlanningPoker.PubSub, topic)
-    end
+    socket =
+      if connected?(socket) do
+        monitor_ref = Planning.subscribe_and_monitor(id)
+        socket |> assign(:monitor_ref, monitor_ref)
+      else
+        socket
+      end
 
     {:ok,
      socket
@@ -24,22 +26,46 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
 
   @impl true
   def handle_event("start_voting", _value, socket) do
-    {:ok, new_planning_session} = Planning.start_voting(socket.assigns.planning_session_id)
-    {:noreply, assign(socket, :planning_session, new_planning_session)}
+    :ok = Planning.start_voting(socket.assigns.planning_session_id)
+    {:noreply, socket}
   end
 
   def handle_event("finish_voting", _value, socket) do
-    {:ok, new_planning_session} = Planning.finish_voting(socket.assigns.planning_session_id)
-    {:noreply, assign(socket, :planning_session, new_planning_session)}
+    :ok = Planning.finish_voting(socket.assigns.planning_session_id)
+    {:noreply, socket}
   end
 
   def handle_event("commit_results", _value, socket) do
-    {:ok, new_planning_session} = Planning.commit_results(socket.assigns.planning_session_id)
-    {:noreply, assign(socket, :planning_session, new_planning_session)}
+    :ok = Planning.commit_results(socket.assigns.planning_session_id)
+    {:noreply, socket}
+  end
+
+  def handle_event("kill_planning_session", _value, socket) do
+    Planning.kill_planning_session(socket.assigns.planning_session_id)
+    {:noreply, socket}
   end
 
   @impl true
   def handle_info({:state_change, new_planning_session}, socket) do
     {:noreply, assign(socket, :planning_session, new_planning_session)}
+  end
+
+  def handle_info({:DOWN, ref, :process, _, reason}, socket) do
+    socket =
+      if socket.assigns.monitor_ref == ref do
+        Logger.warn("PlanningSession died, reason=#{inspect(reason)}")
+        Process.send_after(self(), :die, 2500)
+        put_flash(socket, :error, "Oops, PlanningSession died, dying now too...")
+        # Process.exit(self(), :normal)
+      else
+        socket
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_info(:die, socket) do
+    Process.exit(self(), :normal)
+    {:noreply, socket}
   end
 end

@@ -16,7 +16,10 @@ defmodule PlanningPoker.Application do
       PlanningPokerWeb.Endpoint,
       # Start a worker by calling: PlanningPoker.Worker.start_link(arg)
       # {PlanningPoker.Worker, arg}
-      {PlanningPoker.PlanningSession, [name: :default_planning_session]}
+      {Registry, [name: PlanningPoker.PlanningSession.Registry, keys: :unique]},
+      {PlanningPoker.PlanningSession,
+       name: {:via, Registry, {PlanningPoker.PlanningSession.Registry, "default"}},
+       args: %{id: "default"}}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
