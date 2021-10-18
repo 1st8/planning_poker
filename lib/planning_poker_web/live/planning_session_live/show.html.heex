@@ -1,0 +1,15 @@
+<pre><%= inspect(@planning_session) %></pre>
+
+<%= case @planning_session do %>
+  <% {:lobby, data} -> %> 
+    <h1>Lobby</h1>
+    <button phx-click="start_voting">Start Voting</button>
+  <% {:voting, data} -> %> 
+    <h1>Voting</h1>
+    <button phx-click="finish_voting">Finish Voting</button>
+  <% {:results, data} -> %> 
+    <h1>Results</h1>
+    <button phx-click="commit_results">Commit & back to lobby</button>
+  <% {state, data} -> %>
+    <pre>unknown state <%= inspect(state) %></pre>
+<% end %>
