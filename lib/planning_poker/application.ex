@@ -16,6 +16,7 @@ defmodule PlanningPoker.Application do
       PlanningPokerWeb.Endpoint,
       # Start a worker by calling: PlanningPoker.Worker.start_link(arg)
       # {PlanningPoker.Worker, arg}
+      {Task.Supervisor, name: PlanningPoker.TaskSupervisor},
       {Registry, [name: PlanningPoker.PlanningSession.Registry, keys: :unique]},
       {PlanningPoker.PlanningSession,
        name: {:via, Registry, {PlanningPoker.PlanningSession.Registry, "default"}},

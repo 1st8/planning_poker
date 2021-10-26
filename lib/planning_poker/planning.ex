@@ -24,7 +24,7 @@ defmodule PlanningPoker.Planning do
     id |> to_pid |> Process.exit(:kill)
   end
 
-  defp to_pid(id) do
+  def to_pid(id) do
     [{pid, _value}] = Registry.lookup(PlanningPoker.PlanningSession.Registry, id)
     pid
   end

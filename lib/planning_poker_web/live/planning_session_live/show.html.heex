@@ -1,17 +1,31 @@
-<pre><%= inspect(@planning_session) %></pre>
-
 <%= case @planning_session do %>
-  <% {:lobby, data} -> %> 
+  <% %{state: :lobby} = data -> %> 
     <h1>Lobby</h1>
     <button phx-click="start_voting">Start Voting</button>
-  <% {:voting, data} -> %> 
+
+    <ol>
+    <%= for issue <- @issues do %>
+      <li>
+        <a href={issue["webUrl"]}><%= issue["title"] %></a>
+        <small><%= issue["referencePath"] %></small>
+      </li>
+    <% end %>
+    </ol>
+  <% %{state: :voting} = data -> %> 
     <h1>Voting</h1>
     <button phx-click="finish_voting">Finish Voting</button>
-  <% {:results, data} -> %> 
+  <% %{state: :results} = data -> %> 
     <h1>Results</h1>
     <button phx-click="commit_results">Commit & back to lobby</button>
-  <% {state, data} -> %>
-    <pre>unknown state <%= inspect(state) %></pre>
+  <% data -> %>
+    <pre>unknown state <%= inspect(data) %></pre>
 <% end %>
+
 <hr />
-<a href="#" phx-click="kill_planning_session">Kill</a>
+
+<h1>dev stuff</h1>
+<h2>state machine</h2>
+<pre><%= inspect(@planning_session) %></pre>
+<a href="#" phx-click="kill_planning_session">Kill process</a>
+<h2>issues</h2>
+<pre><%= inspect(@issues) %></pre>
