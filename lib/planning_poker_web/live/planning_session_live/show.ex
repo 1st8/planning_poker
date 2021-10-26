@@ -1,7 +1,7 @@
 defmodule PlanningPokerWeb.PlanningSessionLive.Show do
   use PlanningPokerWeb, :live_view
 
-  alias PlanningPoker.Planning
+  alias PlanningPoker.{Issues, Planning}
 
   require Logger
 
@@ -20,28 +20,28 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     {:ok,
      socket
      |> assign(:page_title, "Planning session")
-     |> assign(:planning_session_id, id)
-     |> assign(:planning_session, Planning.get_planning_session!(id))}
+     |> assign(:planning_session, Planning.get_planning_session!(id))
+     |> assign(:issues, Issues.list_issues!(id))}
   end
 
   @impl true
   def handle_event("start_voting", _value, socket) do
-    :ok = Planning.start_voting(socket.assigns.planning_session_id)
+    :ok = Planning.start_voting(socket.assigns.planning_session.id)
     {:noreply, socket}
   end
 
   def handle_event("finish_voting", _value, socket) do
-    :ok = Planning.finish_voting(socket.assigns.planning_session_id)
+    :ok = Planning.finish_voting(socket.assigns.planning_session.id)
     {:noreply, socket}
   end
 
   def handle_event("commit_results", _value, socket) do
-    :ok = Planning.commit_results(socket.assigns.planning_session_id)
+    :ok = Planning.commit_results(socket.assigns.planning_session.id)
     {:noreply, socket}
   end
 
   def handle_event("kill_planning_session", _value, socket) do
-    Planning.kill_planning_session(socket.assigns.planning_session_id)
+    Planning.kill_planning_session(socket.assigns.planning_session.id)
     {:noreply, socket}
   end
 
