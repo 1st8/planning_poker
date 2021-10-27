@@ -1,3 +1,4 @@
+<small>Hallo <%= @current_participant.name %></small>
 <%= case @planning_session do %>
   <% %{state: :lobby} = data -> %> 
     <h1>Lobby</h1>
@@ -21,9 +22,18 @@
     <pre>unknown state <%= inspect(data) %></pre>
 <% end %>
 
+<h2>Teilnehmer</h2>
+<ul>
+<%= for participant <- @participants do %>
+  <li><%= participant.name %></li>
+<% end %>
+</ul>
+
 <hr />
 
 <h1>dev stuff</h1>
+<h2>participant</h2>
+<pre><%= inspect(@current_participant) %></pre>
 <h2>state machine</h2>
 <pre><%= inspect(@planning_session) %></pre>
 <a href="#" phx-click="kill_planning_session">Kill process</a>

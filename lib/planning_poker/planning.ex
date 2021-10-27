@@ -1,7 +1,21 @@
 defmodule PlanningPoker.Planning do
+  alias PlanningPoker.Presence
+
   def subscribe_and_monitor(id) do
     Phoenix.PubSub.subscribe(PlanningPoker.PubSub, planning_session_topic(id))
     Process.monitor(id |> to_pid)
+  end
+
+  def join_participant(session_id, %{id: id} = participant) do
+    Presence.track(self(), planning_session_topic(session_id), id, participant)
+  end
+
+  def get_participants!(id) do
+    id
+    |> planning_session_topic
+    |> Presence.list()
+    |> Map.values()
+    |> Enum.map(fn v -> get_in(v, [:metas, Access.at(0)]) end)
   end
 
   def get_planning_session!(id) do
