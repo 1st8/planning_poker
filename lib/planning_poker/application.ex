@@ -12,6 +12,7 @@ defmodule PlanningPoker.Application do
       PlanningPokerWeb.Telemetry,
       # Start the PubSub system
       {Phoenix.PubSub, name: PlanningPoker.PubSub},
+      PlanningPoker.Presence,
       # Start the Endpoint (http/https)
       PlanningPokerWeb.Endpoint,
       # Start a worker by calling: PlanningPoker.Worker.start_link(arg)

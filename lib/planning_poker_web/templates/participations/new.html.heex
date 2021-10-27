@@ -1,0 +1,7 @@
+<h1>Wer bist du?</h1>
+
+<%= form_for @conn, Routes.participations_path(@conn, :create), fn f -> %>
+  <label for="participant-name">Name</label>
+  <%= text_input f, :name %>
+  <button>Beitreten</button>
+<% end %>

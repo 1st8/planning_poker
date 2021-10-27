@@ -6,12 +6,13 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
   require Logger
 
   @impl true
-  def mount(params, _session, socket) do
+  def mount(params, %{"participant" => participant}, socket) do
     id = Map.get(params, "id", "default")
 
     socket =
       if connected?(socket) do
         monitor_ref = Planning.subscribe_and_monitor(id)
+        Planning.join_participant(id, participant)
         socket |> assign(:monitor_ref, monitor_ref)
       else
         socket
@@ -21,7 +22,13 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
      socket
      |> assign(:page_title, "Planning session")
      |> assign(:planning_session, Planning.get_planning_session!(id))
-     |> assign(:issues, Issues.list_issues!(id))}
+     |> assign(:issues, Issues.list_issues!(id))
+     |> assign(:participants, Planning.get_participants!(id))
+     |> assign(:current_participant, participant)}
+  end
+
+  def mount(_params, _session, socket) do
+    {:ok, redirect(socket, to: "/participate")}
   end
 
   @impl true
@@ -50,18 +57,21 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     {:noreply, assign(socket, :planning_session, new_planning_session)}
   end
 
-  def handle_info({:DOWN, ref, :process, _, reason}, socket) do
-    socket =
-      if socket.assigns.monitor_ref == ref do
-        Logger.warn("PlanningSession died, reason=#{inspect(reason)}")
-        Process.send_after(self(), :die, 2500)
-        put_flash(socket, :error, "Oops, PlanningSession died, dying now too...")
-        # Process.exit(self(), :normal)
-      else
-        socket
-      end
+  def handle_info(%{event: "presence_diff"}, socket) do
+    {:noreply,
+     socket
+     |> assign(:participants, Planning.get_participants!(socket.assigns.planning_session.id))}
+  end
 
-    {:noreply, socket}
+  # PlanningSession DOWN handler
+  def handle_info(
+        {:DOWN, monitor_ref, :process, _, reason},
+        %{assigns: %{monitor_ref: monitor_ref}} = socket
+      ) do
+    Logger.warn("PlanningSession died, reason=#{inspect(reason)}")
+    Process.send_after(self(), :die, 250)
+
+    {:noreply, socket |> put_flash(:error, "Oops, PlanningSession died, dying now too...")}
   end
 
   def handle_info(:die, socket) do

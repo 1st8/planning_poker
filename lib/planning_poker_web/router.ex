@@ -17,8 +17,9 @@ defmodule PlanningPokerWeb.Router do
   scope "/", PlanningPokerWeb do
     pipe_through :browser
 
-    # get "/", PageController, :index
     live "/", PlanningSessionLive.Show
+    get "/participate", ParticipationsController, :new
+    post "/participate", ParticipationsController, :create
   end
 
   # Other scopes may use custom stacks.

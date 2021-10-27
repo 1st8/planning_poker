@@ -44,7 +44,8 @@ defmodule PlanningPoker.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:plug_cowboy, "~> 2.5"},
-      {:tesla, git: "https://github.com/teamon/tesla.git"}
+      {:tesla, git: "https://github.com/teamon/tesla.git"},
+      {:elixir_uuid, "~> 1.2"}
     ]
   end
 
