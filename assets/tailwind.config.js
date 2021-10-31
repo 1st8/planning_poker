@@ -1,6 +1,10 @@
 module.exports = {
   mode: "jit",
-  purge: ["../lib/**/*.heex", "./js/**/*.{js,jsx,ts,tsx,vue}"],
+  purge: [
+    "../lib/**/*.heex",
+    "../lib/planning_poker_web/components/*.ex",
+    "./js/**/*.{js,jsx,ts,tsx,vue}",
+  ],
   darkMode: false, // or 'media' or 'class'
   theme: {
     extend: {},
@@ -8,5 +12,9 @@ module.exports = {
   variants: {
     extend: {},
   },
-  plugins: [require("@tailwindcss/forms")],
+  plugins: [
+    require("@tailwindcss/typography"),
+    require("@tailwindcss/forms"),
+    require("daisyui"),
+  ],
 };

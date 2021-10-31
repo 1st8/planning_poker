@@ -1,7 +1,9 @@
 {
   "dependencies": {
     "@tailwindcss/forms": "^0.3.4",
+    "@tailwindcss/typography": "^0.4.1",
     "autoprefixer": "^10.4.0",
+    "daisyui": "^1.16.0",
     "postcss": "^8.3.11",
     "tailwindcss": "^2.2.19"
   },
