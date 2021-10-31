@@ -3,7 +3,7 @@ defmodule PlanningPoker.GitlabApi do
 
   def default_client do
     middleware = [
-      {Tesla.Middleware.BaseUrl, System.fetch_env!("GITLAB_URL")},
+      {Tesla.Middleware.BaseUrl, System.get_env("GITLAB_URL", "https://gitlab.com")},
       {Tesla.Middleware.Headers, [{"PRIVATE-TOKEN", System.fetch_env!("GITLAB_API_TOKEN")}]},
       Tesla.Middleware.JSON
     ]
@@ -11,180 +11,52 @@ defmodule PlanningPoker.GitlabApi do
     Tesla.client(middleware)
   end
 
-  @list_issues_query ~S"""
-    query ListIssues(
-      $fullPath: ID!,
-      $boardId: ID!,
-      $id: ID,
-      $filters: BoardIssueInput,
-      $isGroup: Boolean = false,
-      $isProject: Boolean = false,
-      $after: String,
-      $first: Int
-    ) {
-      group(fullPath: $fullPath) @include(if: $isGroup) {
-        board(id: $boardId) {
-          lists(id: $id, issueFilters: $filters) {
-            nodes {
-              id
-              issuesCount
-              issues(first: $first, filters: $filters, after: $after) {
-                edges {
-                  node {
-                    ...IssueNode
-                    __typename
-                  }
-                  __typename
-                }
-                pageInfo {
-                  endCursor
-                  hasNextPage
-                  __typename
-                }
-                __typename
-              }
-              __typename
-            }
-            __typename
+  @board_list_query """
+    query ListIssues($listId: ListID!, $filters: BoardIssueInput!) {
+      boardList(id: $listId) {
+        issues(filters: $filters) {
+          nodes {
+            id
+            title
+            referencePath: reference(full: true)
+            webUrl
           }
-          __typename
         }
-        __typename
       }
-      project(fullPath: $fullPath) @include(if: $isProject) {
-        board(id: $boardId) {
-          lists(id: $id, issueFilters: $filters) {
-            nodes {
-              id
-              issuesCount
-              issues(first: $first, filters: $filters, after: $after) {
-                edges {
-                  node {
-                    ...IssueNode
-                    __typename
-                  }
-                  __typename
-                }
-                pageInfo {
-                  endCursor
-                  hasNextPage
-                  __typename
-                }
-                __typename
-              }
-              __typename
-            }
-            __typename
-          }
-          __typename
-        }
-        __typename
-      }
-    }
-
-    fragment IssueNode on Issue {
-      id
-      iid
-      title
-      referencePath: reference(full: true)
-      dueDate
-      timeEstimate
-      totalTimeSpent
-      humanTimeEstimate
-      humanTotalTimeSpent
-      weight
-      confidential
-      webUrl
-      blocked
-      blockedByCount
-      relativePosition
-      epic {
-        id
-        __typename
-      }
-      assignees {
-        nodes {
-          ...User
-          __typename
-        }
-        __typename
-      }
-      labels {
-        nodes {
-          id
-          title
-          color
-          description
-          __typename
-        }
-        __typename
-      }
-      __typename
-    }
-
-    fragment User on User {
-      id
-      avatarUrl
-      name
-      username
-      webUrl
-      __typename
     }
   """
 
+  @doc """
+  returns something like
+    [
+      %{
+        "id" => "gid://gitlab/Issue/96438580",
+        "iid" => "1",
+        "referencePath" => "1st8/planning_poker#1",
+        "title" => "Configurable issue source (Project/Group, Board, List)",
+        "webUrl" => "https://gitlab.com/1st8/planning_poker/-/issues/1"
+      }
+    ]
+  """
   def fetch_issues(client, opts \\ []) do
-    board_id = Keyword.get(opts, :board_id, 15)
-    list_id = Keyword.get(opts, :list_id, 68)
+    # default id is "Open" list of https://gitlab.com/1st8/planning_poker/-/boards/3468418
+    list_id = Keyword.get(opts, :list_id, 9_945_417)
 
     {:ok, env} =
       post(client, "/api/graphql", %{
         operationName: "ListIssues",
         variables: %{
-          isGroup: true,
-          isProject: false,
-          fullPath: "tixxt",
-          boardId: "gid://gitlab/Board/#{board_id}",
-          filters: %{not: %{}, weight: "None"},
-          id: "gid://gitlab/List/#{list_id}"
+          filters: %{weight: "None"},
+          listId: "gid://gitlab/List/#{list_id}"
         },
-        query: @list_issues_query
+        query: @board_list_query
       })
 
-    issues =
-      get_in(env.body, [
-        "data",
-        "group",
-        "board",
-        "lists",
-        "nodes",
-        Access.at(0),
-        "issues",
-        "edges"
-      ])
-      |> get_nodes_from_edges
-      |> Enum.map(fn issue ->
-        issue
-        |> Map.merge(%{
-          "labels" =>
-            issue["labels"]
-            |> get_nodes_from_connection()
-            |> Enum.map(&Map.take(&1, ["title", "color"])),
-          "assignees" =>
-            issue["assignees"]
-            |> get_nodes_from_connection()
-            |> Enum.map(&Map.take(&1, ["name", "webUrl", "avatarUrl"]))
-        })
-        |> Map.take(["title", "referencePath", "webUrl", "labels", "assignees"])
-      end)
-
-    issues
-  end
-
-  defp get_nodes_from_edges(edges) do
-    Enum.map(edges, fn edge -> edge["node"] end)
-  end
-
-  defp get_nodes_from_connection(connection) do
-    connection["nodes"]
+    get_in(env.body, [
+      "data",
+      "boardList",
+      "issues",
+      "nodes"
+    ])
   end
 end
