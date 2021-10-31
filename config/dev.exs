@@ -16,7 +16,9 @@ config :planning_poker, PlanningPokerWeb.Endpoint,
   secret_key_base: "yyJkhN1lJdCtYAbQrgH8DVf+FWlGFEGdUSsmeI7pcTgc9EjNuzXt0AYj4VXSrJQG",
   watchers: [
     # Start the esbuild watcher by calling Esbuild.install_and_run(:default, args)
-    esbuild: {Esbuild, :install_and_run, [:default, ~w(--sourcemap=inline --watch)]}
+    esbuild: {Esbuild, :install_and_run, [:default, ~w(--sourcemap=inline --watch)]},
+    # Start the postcss/tailwind watcher
+    npm: ["run", "dev:css", cd: Path.expand("../assets", __DIR__)]
   ]
 
 # ## SSL Support
