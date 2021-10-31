@@ -33,12 +33,7 @@ defmodule PlanningPoker.PlanningSession do
 
   @impl :gen_statem
   def handle_event(:enter, _event, :lobby, data) do
-    task =
-      Task.Supervisor.async_nolink(PlanningPoker.TaskSupervisor, fn ->
-        GitlabApi.fetch_issues(GitlabApi.default_client())
-      end)
-
-    {:next_state, :lobby, data |> Map.put(:fetch_issues_ref, task.ref)}
+    {:next_state, :lobby, data |> fetch_issues}
   end
 
   def handle_event(:enter, _, _state, data) do
@@ -58,6 +53,12 @@ defmodule PlanningPoker.PlanningSession do
   def handle_event({:call, from}, :commit_results, :results, data) do
     broadcast_state_change(:lobby, data)
     {:next_state, :lobby, data, [{:reply, from, :ok}]}
+  end
+
+  def handle_event({:call, from}, :refresh_issues, _state, data) do
+    data = data |> fetch_issues
+    broadcast_state_change(:lobby, data)
+    {:keep_state, data, [{:reply, from, :ok}]}
   end
 
   def handle_event({:call, from}, :get_state, state, data) do
@@ -88,7 +89,7 @@ defmodule PlanningPoker.PlanningSession do
 
   defp to_payload(state, data) do
     data
-    |> Map.drop([:issues, :fetch_issues_ref])
+    |> Map.drop([:fetch_issues_ref])
     |> Map.merge(%{state: state, loading: Map.has_key?(data, :fetch_issues_ref)})
   end
 
@@ -98,5 +99,14 @@ defmodule PlanningPoker.PlanningSession do
       Planning.planning_session_topic(data.id),
       {:state_change, to_payload(state, data)}
     )
+  end
+
+  defp fetch_issues(data) do
+    task =
+      Task.Supervisor.async_nolink(PlanningPoker.TaskSupervisor, fn ->
+        GitlabApi.fetch_issues(GitlabApi.default_client())
+      end)
+
+    Map.put(data, :fetch_issues_ref, task.ref)
   end
 end

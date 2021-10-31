@@ -88,6 +88,8 @@ defmodule PlanningPokerWeb do
 
       import PlanningPokerWeb.ErrorHelpers
       alias PlanningPokerWeb.Router.Helpers, as: Routes
+
+      import PlanningPokerWeb.LayoutComponents
     end
   end
 

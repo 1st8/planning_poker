@@ -1,41 +1,63 @@
-<small>Hallo <%= @current_participant.name %></small>
-<%= case @planning_session do %>
-  <% %{state: :lobby} = data -> %> 
-    <h1>Lobby</h1>
-    <button phx-click="start_voting">Start Voting</button>
+<.hero>
 
-    <ol>
-    <%= for issue <- @issues do %>
-      <li>
-        <a href={issue["webUrl"]}><%= issue["title"] %></a>
-        <small><%= issue["referencePath"] %></small>
-      </li>
+<div class="flex p-4 gap-4 w-full">
+  <div class="flex flex-col flex-1 p-2 space-y-2">
+
+    <%= case @planning_session do %>
+      <% %{state: :lobby} = data -> %>
+        <h2 class="">Issues</h2>
+        <ol class="space-y-2">
+        <%= for issue <- data.issues do %>
+          <li class="border-2 text-primary-content border-opacity-40 border-primary-content rounded-lg flex items-stretch bg-neutral bg-opacity-25">
+            <div data-tip="Select for Voting" class="tooltip">
+              <button class="btn btn-ghost rounded-r-none rounded-l-lg h-full px-2 block border-0 border-r-2 border-opacity-40 border-primary-content hover:border-opacity-40 hover:border-primary-content" phx-click="start_voting" phx-value-iid={issue["id"]}>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                </svg>
+              </button>
+            </div>
+            <div class="flex-1 px-3 py-2">
+              <a class="text-lg block leading-5" href={issue["webUrl"]}><%= issue["title"] %></a>
+              <small class="text-sm"><%= issue["referencePath"] %></small>
+            </div>
+          </li>
+        <% end %>
+        </ol>
+        <%= if data.loading do %>
+          <button class="btn btn-sm btn-ghost self-center loading" disabled phx-click="refresh_issues">Loading...</button>
+        <% else %>
+          <button class="btn btn-sm btn-ghost self-center" phx-click="refresh_issues">Refresh</button>
+        <% end %>
+      <% %{state: :voting} = data -> %> 
+        <h1>Voting</h1>
+        <button class="btn" phx-click="finish_voting">Finish Voting</button>
+      <% %{state: :results} = data -> %> 
+        <h1>Results</h1>
+        <button class="btn" phx-click="commit_results">Commit & back to lobby</button>
+      <% data -> %>
+        <pre>unknown state <%= inspect(data) %></pre>
     <% end %>
-    </ol>
-  <% %{state: :voting} = data -> %> 
-    <h1>Voting</h1>
-    <button phx-click="finish_voting">Finish Voting</button>
-  <% %{state: :results} = data -> %> 
-    <h1>Results</h1>
-    <button phx-click="commit_results">Commit & back to lobby</button>
-  <% data -> %>
-    <pre>unknown state <%= inspect(data) %></pre>
-<% end %>
+  
+  </div>
+  <div class="sm:w-1/4 p-2 space-y-2">
+    <h2 class="">Participants</h2>
+    <ul>
+    <%= for participant <- @participants do %>
+      <li><%= participant.name %></li>
+    <% end %>
+    </ul>
+  </div>
+</div>
 
-<h2>Teilnehmer</h2>
-<ul>
-<%= for participant <- @participants do %>
-  <li><%= participant.name %></li>
-<% end %>
-</ul>
+</.hero>
 
-<hr />
-
+<div class="">
 <h1>dev stuff</h1>
 <h2>participant</h2>
-<pre><%= inspect(@current_participant) %></pre>
-<h2>state machine</h2>
-<pre><%= inspect(@planning_session) %></pre>
-<a href="#" phx-click="kill_planning_session">Kill process</a>
-<h2>issues</h2>
-<pre><%= inspect(@issues) %></pre>
+<pre><%= inspect(@current_participant, pretty: true) %></pre>
+<h2>
+state machine
+<button phx-click="kill_planning_session" class="btn btn-warning btn-xs">Kill</button>
+</h2>
+<pre><%= inspect(@planning_session, pretty: true) %></pre>
+</div>

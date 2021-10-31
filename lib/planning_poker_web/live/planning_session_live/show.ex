@@ -20,9 +20,8 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
 
     {:ok,
      socket
-     |> assign(:page_title, "Planning session")
      |> assign(:planning_session, Planning.get_planning_session!(id))
-     |> assign(:issues, Issues.list_issues!(id))
+     |> assign_title()
      |> assign(:participants, Planning.get_participants!(id))
      |> assign(:current_participant, participant)}
   end
@@ -52,9 +51,19 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     {:noreply, socket}
   end
 
+  def handle_event("refresh_issues", _value, socket) do
+    Planning.refresh_issues(socket.assigns.planning_session.id)
+    {:noreply, socket}
+  end
+
   @impl true
   def handle_info({:state_change, new_planning_session}, socket) do
-    {:noreply, assign(socket, :planning_session, new_planning_session)}
+    socket =
+      socket
+      |> assign(:planning_session, new_planning_session)
+      |> assign_title()
+
+    {:noreply, socket}
   end
 
   def handle_info(%{event: "presence_diff"}, socket) do
@@ -77,5 +86,14 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
   def handle_info(:die, socket) do
     Process.exit(self(), :normal)
     {:noreply, socket}
+  end
+
+  def assign_title(socket) do
+    socket |> assign(:page_title, case socket.assigns.planning_session.state do
+      :lobby -> "Lobby"
+      :voting -> "Voting"
+      :results -> "Results"
+      _ -> "Loading..."
+    end)
   end
 end

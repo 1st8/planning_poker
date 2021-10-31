@@ -34,6 +34,10 @@ defmodule PlanningPoker.Planning do
     id |> to_pid |> :gen_statem.call(:commit_results)
   end
 
+  def refresh_issues(id) do
+    id |> to_pid |> :gen_statem.call(:refresh_issues)
+  end
+
   def kill_planning_session(id) do
     id |> to_pid |> Process.exit(:kill)
   end
