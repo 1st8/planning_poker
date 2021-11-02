@@ -25,7 +25,13 @@ defmodule PlanningPoker.PlanningSession do
 
   @impl :gen_statem
   def init(%{id: id}) do
-    {:ok, :lobby, %{id: id, start: DateTime.utc_now()}}
+    {:ok, :lobby,
+     %{
+       id: id,
+       start: DateTime.utc_now(),
+       options: [1, 2, 3, 5, 8, 13, 21, "?"] |> Enum.map(&to_string/1),
+       issues: []
+     }}
   end
 
   @impl :gen_statem
@@ -40,8 +46,15 @@ defmodule PlanningPoker.PlanningSession do
     {:keep_state, data}
   end
 
-  def handle_event({:call, from}, :start_voting, :lobby, data) do
+  def handle_event({:call, from}, {:start_voting, issue_id}, :lobby, data) do
+    current_issue =
+      data.issues
+      |> Enum.find(fn el -> el["id"] == issue_id end)
+
+    data = data |> Map.put(:current_issue, current_issue) |> fetch_current_issue
+
     broadcast_state_change(:voting, data)
+
     {:next_state, :voting, data, [{:reply, from, :ok}]}
   end
 
@@ -87,10 +100,38 @@ defmodule PlanningPoker.PlanningSession do
     {:keep_state, new_data}
   end
 
+  def handle_event(
+        :info,
+        {fetch_issue_ref, result},
+        state,
+        %{fetch_issue_ref: fetch_issue_ref} = data
+      ) do
+    Process.demonitor(fetch_issue_ref, [:flush])
+
+    new_data =
+      case data.current_issue do
+        nil -> data
+        _ -> data |> Map.put(:current_issue, result)
+      end
+      |> Map.delete(:fetch_issue_ref)
+
+    broadcast_state_change(state, new_data)
+
+    {:keep_state, new_data}
+  end
+
   defp to_payload(state, data) do
     data
-    |> Map.drop([:fetch_issues_ref])
-    |> Map.merge(%{state: state, loading: Map.has_key?(data, :fetch_issues_ref)})
+    |> Map.drop([:fetch_issues_ref, :fetch_issue_ref])
+    |> Map.merge(%{
+      state: state,
+      fetching: Map.has_key?(data, :fetch_issues_ref),
+      current_issue:
+        case data[:current_issue] do
+          nil -> nil
+          issue -> Map.merge(issue, %{fetching: Map.has_key?(issue, :fetch_issue_ref)})
+        end
+    })
   end
 
   defp broadcast_state_change(state, data) do
@@ -108,5 +149,14 @@ defmodule PlanningPoker.PlanningSession do
       end)
 
     Map.put(data, :fetch_issues_ref, task.ref)
+  end
+
+  defp fetch_current_issue(data) do
+    task =
+      Task.Supervisor.async_nolink(PlanningPoker.TaskSupervisor, fn ->
+        GitlabApi.fetch_issue(GitlabApi.default_client(), data.current_issue["id"])
+      end)
+
+    Map.put(data, :fetch_issue_ref, task.ref)
   end
 end

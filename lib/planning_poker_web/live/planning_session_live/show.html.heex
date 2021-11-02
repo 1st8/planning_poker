@@ -10,7 +10,11 @@
         <%= for issue <- data.issues do %>
           <li class="border-2 text-primary-content border-opacity-40 border-primary-content rounded-lg flex items-stretch bg-neutral bg-opacity-25">
             <div data-tip="Select for Voting" class="tooltip">
-              <button class="btn btn-ghost rounded-r-none rounded-l-lg h-full px-2 block border-0 border-r-2 border-opacity-40 border-primary-content hover:border-opacity-40 hover:border-primary-content" phx-click="start_voting" phx-value-iid={issue["id"]}>
+              <button
+                class="btn btn-ghost rounded-r-none rounded-l-lg h-full px-2 block border-0 border-r-2 border-opacity-40 border-primary-content hover:border-opacity-40 hover:border-primary-content"
+                phx-click="start_voting"
+                phx-value-issue_id={issue["id"]}
+              >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" viewBox="0 0 20 20" fill="currentColor">
                   <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
                 </svg>
@@ -23,27 +27,45 @@
           </li>
         <% end %>
         </ol>
-        <%= if data.loading do %>
+        <%= if data.fetching do %>
           <button class="btn btn-sm btn-ghost self-center loading" disabled phx-click="refresh_issues">Loading...</button>
         <% else %>
           <button class="btn btn-sm btn-ghost self-center" phx-click="refresh_issues">Refresh</button>
         <% end %>
-      <% %{state: :voting} = data -> %> 
-        <h1>Voting</h1>
+
+      <% %{state: :voting, current_issue: issue} -> %>
+        <h1><a href={issue["webUrl"]}><%= issue["title"] %></a></h1>
+        <div class="prose"><%= raw issue["descriptionHtml"] %></div>
         <button class="btn" phx-click="finish_voting">Finish Voting</button>
-      <% %{state: :results} = data -> %> 
+
+      <% %{state: :results} -> %>
         <h1>Results</h1>
-        <button class="btn" phx-click="commit_results">Commit & back to lobby</button>
+        <%= for participant <- @participants |> Enum.filter(&(&1[:vote])) |> Enum.sort_by(&(&1[:vote])) do %>
+          <div><strong class="text-2xl"><%= participant[:vote] %></strong> <%= participant.name %></div>
+        <% end %>
+        <button class="btn" phx-click="commit_results">Back to lobby</button>
       <% data -> %>
         <pre>unknown state <%= inspect(data) %></pre>
     <% end %>
   
   </div>
   <div class="sm:w-1/4 p-2 space-y-2">
+    <%= if @planning_session.state == :voting do %>
+      <h2>Your Vote</h2>
+      <%= for option <- @planning_session.options do %>
+        <button class={"btn #{@current_participant[:vote] == option && "btn-secondary" || "btn-primary"}"} value={option} phx-click="cast_vote"><%= option %></button>
+      <% end %>
+    <% end %>
+
     <h2 class="">Participants</h2>
     <ul>
     <%= for participant <- @participants do %>
-      <li><%= participant.name %></li>
+      <li>
+      <%= participant.name %>
+      <%= if participant[:vote] do %>
+        ✔️
+      <% end %>
+      </li>
     <% end %>
     </ul>
   </div>

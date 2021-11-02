@@ -18,20 +18,38 @@ defmodule PlanningPoker.Planning do
     |> Enum.map(fn v -> get_in(v, [:metas, Access.at(0)]) end)
   end
 
+  def cast_vote(session_id, %{id: id} = participant, value) do
+    Presence.update(
+      self(),
+      planning_session_topic(session_id),
+      id,
+      participant |> Map.put(:vote, value)
+    )
+  end
+
   def get_planning_session!(id) do
     id |> to_pid |> :gen_statem.call(:get_state)
   end
 
-  def start_voting(id) do
-    id |> to_pid |> :gen_statem.call(:start_voting)
+  def start_voting(id, issue_id) do
+    id |> to_pid |> :gen_statem.call({:start_voting, issue_id})
   end
 
   def finish_voting(id) do
     id |> to_pid |> :gen_statem.call(:finish_voting)
   end
 
-  def commit_results(id) do
-    id |> to_pid |> :gen_statem.call(:commit_results)
+  def commit_results(session_id) do
+    Enum.each(get_participants!(session_id), fn %{id: id} = participant ->
+      Presence.update(
+        self(),
+        planning_session_topic(session_id),
+        id,
+        participant |> Map.delete(:vote)
+      )
+    end)
+
+    session_id |> to_pid |> :gen_statem.call(:commit_results)
   end
 
   def refresh_issues(id) do

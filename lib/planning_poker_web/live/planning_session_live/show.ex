@@ -1,7 +1,7 @@
 defmodule PlanningPokerWeb.PlanningSessionLive.Show do
   use PlanningPokerWeb, :live_view
 
-  alias PlanningPoker.{Issues, Planning}
+  alias PlanningPoker.Planning
 
   require Logger
 
@@ -31,8 +31,8 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
   end
 
   @impl true
-  def handle_event("start_voting", _value, socket) do
-    :ok = Planning.start_voting(socket.assigns.planning_session.id)
+  def handle_event("start_voting", %{"issue_id" => issue_id}, socket) do
+    :ok = Planning.start_voting(socket.assigns.planning_session.id, issue_id)
     {:noreply, socket}
   end
 
@@ -56,6 +56,16 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     {:noreply, socket}
   end
 
+  def handle_event("cast_vote", %{"value" => value}, socket) do
+    Planning.cast_vote(
+      socket.assigns.planning_session.id,
+      socket.assigns.current_participant,
+      value
+    )
+
+    {:noreply, socket}
+  end
+
   @impl true
   def handle_info({:state_change, new_planning_session}, socket) do
     socket =
@@ -67,9 +77,15 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
   end
 
   def handle_info(%{event: "presence_diff"}, socket) do
+    participants = Planning.get_participants!(socket.assigns.planning_session.id)
+
+    current_participant =
+      Enum.find(participants, fn p -> p.id == socket.assigns.current_participant.id end)
+
     {:noreply,
      socket
-     |> assign(:participants, Planning.get_participants!(socket.assigns.planning_session.id))}
+     |> assign(:participants, participants)
+     |> assign(:current_participant, current_participant)}
   end
 
   # PlanningSession DOWN handler
@@ -89,11 +105,15 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
   end
 
   def assign_title(socket) do
-    socket |> assign(:page_title, case socket.assigns.planning_session.state do
-      :lobby -> "Lobby"
-      :voting -> "Voting"
-      :results -> "Results"
-      _ -> "Loading..."
-    end)
+    socket
+    |> assign(
+      :page_title,
+      case socket.assigns.planning_session.state do
+        :lobby -> "Lobby"
+        :voting -> "Voting"
+        :results -> "Results"
+        _ -> "Loading..."
+      end
+    )
   end
 end

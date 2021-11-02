@@ -26,6 +26,27 @@ defmodule PlanningPoker.GitlabApi do
     }
   """
 
+  @get_issue_query """
+    query GetIssue($issueId: IssueID!) {
+      issue(id: $issueId) {
+        id
+        iid
+        title
+        descriptionHtml
+        referencePath: reference(full: true)
+        webUrl
+        epic {
+          title
+          reference: reference(full: true)
+        }
+        author {
+          name
+        }
+        createdAt
+      }
+    }
+  """
+
   @doc """
   returns something like
     [
@@ -57,6 +78,22 @@ defmodule PlanningPoker.GitlabApi do
       "boardList",
       "issues",
       "nodes"
+    ])
+  end
+
+  def fetch_issue(client, issue_id, _opts \\ []) do
+    {:ok, env} =
+      post(client, "/api/graphql", %{
+        operationName: "GetIssue",
+        variables: %{
+          issueId: issue_id
+        },
+        query: @get_issue_query
+      })
+
+    get_in(env.body, [
+      "data",
+      "issue"
     ])
   end
 end
