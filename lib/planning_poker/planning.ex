@@ -40,16 +40,24 @@ defmodule PlanningPoker.Planning do
   end
 
   def commit_results(session_id) do
-    Enum.each(get_participants!(session_id), fn %{id: id} = participant ->
-      Presence.update(
-        self(),
-        planning_session_topic(session_id),
-        id,
-        participant |> Map.delete(:vote)
-      )
-    end)
+    clear_votes(session_id)
 
     session_id |> to_pid |> :gen_statem.call(:commit_results)
+  end
+
+  def clear_votes(session_id) do
+    topic = session_id |> planning_session_topic
+
+    Enum.each(get_participants!(session_id), fn %{id: id} = participant ->
+      Enum.each(Phoenix.Tracker.get_by_key(Presence, topic, id), fn {pid, _} ->
+        Presence.update(
+          pid,
+          planning_session_topic(session_id),
+          id,
+          participant |> Map.delete(:vote)
+        )
+      end)
+    end)
   end
 
   def refresh_issues(id) do
