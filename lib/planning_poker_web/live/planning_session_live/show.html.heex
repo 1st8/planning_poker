@@ -21,7 +21,7 @@
               </button>
             </div>
             <div class="flex-1 px-3 py-2">
-              <a class="text-lg block leading-5" href={issue["webUrl"]}><%= issue["title"] %></a>
+              <a class="text-lg block leading-5" href={issue["webUrl"]} target="_blank"><%= issue["title"] %></a>
               <small class="text-sm"><%= issue["referencePath"] %></small>
             </div>
           </li>
@@ -34,7 +34,7 @@
         <% end %>
 
       <% %{state: :voting, current_issue: issue} -> %>
-        <h1><a href={issue["webUrl"]}><%= issue["title"] %></a></h1>
+        <h1><a href={issue["webUrl"]} target="_blank"><%= issue["title"] %></a></h1>
         <div class="prose"><%= raw issue["descriptionHtml"] %></div>
         <button class="btn" phx-click="finish_voting">Finish Voting</button>
 
