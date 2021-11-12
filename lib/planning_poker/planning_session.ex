@@ -51,7 +51,11 @@ defmodule PlanningPoker.PlanningSession do
       data.issues
       |> Enum.find(fn el -> el["id"] == issue_id end)
 
-    data = data |> Map.put(:current_issue, current_issue) |> fetch_current_issue
+    data =
+      data
+      |> Map.put(:current_issue, current_issue)
+      |> fetch_current_issue
+      |> Map.put(:voting_started_at, DateTime.utc_now())
 
     broadcast_state_change(:voting, data)
 

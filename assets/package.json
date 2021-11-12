@@ -4,10 +4,14 @@
     "@tailwindcss/typography": "^0.4.1",
     "autoprefixer": "^10.4.0",
     "daisyui": "^1.16.0",
+    "date-fns": "^2.25.0",
+    "esbuild": "^0.13.13",
     "postcss": "^8.3.11",
+    "svelte": "^3.44.1",
     "tailwindcss": "^2.2.19"
   },
   "scripts": {
+    "dev:js": "./build.js",
     "dev:css": "postcss css/app.css --output ../priv/static/assets/app.css --watch"
   },
   "devDependencies": {

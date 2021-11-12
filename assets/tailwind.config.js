@@ -3,7 +3,7 @@ module.exports = {
   purge: [
     "../lib/**/*.heex",
     "../lib/planning_poker_web/components/*.ex",
-    "./js/**/*.{js,jsx,ts,tsx,vue}",
+    "./js/**/*.{js,jsx,ts,tsx,vue,svelte}",
   ],
   darkMode: false, // or 'media' or 'class'
   theme: {
