@@ -1,12 +1,12 @@
 <script>
   import { beforeUpdate } from "svelte";
-  import { parseISO, intervalToDuration, formatDuration } from "date-fns";
+  import { sub, intervalToDuration, formatDuration } from "date-fns";
 
-  export let startedAt;
+  export let seconds;
   const formatOptions = { format: ["minutes", "seconds"], zero: true };
 
   let start, end, duration;
-  $: start = startedAt ? parseISO(startedAt) : null;
+  $: start = seconds ? sub(new Date(), { seconds }) : null;
   $: end = start ? new Date() : null;
   $: duration = start && end ? intervalToDuration({ start, end }) : null;
 

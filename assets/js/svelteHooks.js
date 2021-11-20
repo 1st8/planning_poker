@@ -24,5 +24,5 @@ const svelteHook = (Component, { mapProps }) => ({
 });
 
 export default {
-  VotingTimer: svelteHook(VotingTimer, { mapProps: ["startedAt"] }),
+  VotingTimer: svelteHook(VotingTimer, { mapProps: ["seconds"] }),
 };

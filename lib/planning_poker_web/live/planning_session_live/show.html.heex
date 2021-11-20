@@ -70,7 +70,7 @@
     </ul>
 
     <%= if @planning_session.state == :voting do %>
-      <div phx-hook="VotingTimer" startedAt={@planning_session.voting_started_at |> DateTime.to_iso8601} id="voting-timer" />
+      <div phx-hook="VotingTimer" seconds={DateTime.diff(DateTime.utc_now(), @planning_session.voting_started_at, :seconds)} id="voting-timer" />
     <% end %>
   </div>
 </div>
