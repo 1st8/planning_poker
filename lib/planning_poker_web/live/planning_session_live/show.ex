@@ -2,6 +2,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
   use PlanningPokerWeb, :live_view
 
   alias PlanningPoker.Planning
+  alias PlanningPokerWeb.TimerComponent
 
   require Logger
 
