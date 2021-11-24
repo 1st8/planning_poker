@@ -70,7 +70,7 @@
     </ul>
 
     <%= if @planning_session.state == :voting do %>
-      <.live_component module={TimerComponent} seconds={DateTime.diff(DateTime.utc_now(), @planning_session.voting_started_at, :seconds)} id="voting-timer" />
+      <.live_component module={TimerComponent} started_at={@planning_session.voting_started_at} id="voting-timer" />
     <% end %>
   </div>
 </div>
