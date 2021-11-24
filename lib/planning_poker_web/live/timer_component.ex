@@ -5,15 +5,13 @@ defmodule PlanningPokerWeb.TimerComponent do
   def render(assigns) do
     ~H"""
     <div
-      id={@id}
       phx-hook="VotingTimer"
-      seconds={@seconds}
+      seconds={seconds_since(@started_at)}
     />
     """
   end
 
-  @impl true
-  def handle_event("close", _, socket) do
-    {:noreply, push_patch(socket, to: socket.assigns.return_to)}
+  def seconds_since(datetime) do
+    DateTime.diff(DateTime.utc_now(), datetime, :seconds)
   end
 end
