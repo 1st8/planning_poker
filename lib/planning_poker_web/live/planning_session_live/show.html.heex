@@ -35,7 +35,7 @@
 
       <% %{state: :voting, current_issue: issue} -> %>
         <h1><a href={issue["webUrl"]} target="_blank"><%= issue["title"] %></a></h1>
-        <div class="prose"><%= raw issue["descriptionHtml"] %></div>
+        <div id="issue-description" class="prose" phx-hook="LazyImages" data-base-url={issue[:base_url]}><%= raw issue["descriptionHtml"] %></div>
         <button class="btn" phx-click="finish_voting">Finish Voting</button>
 
       <% %{state: :results} -> %>
