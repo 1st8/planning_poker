@@ -101,5 +101,6 @@ defmodule PlanningPoker.GitlabApi do
       "data",
       "issue"
     ])
+    |> Map.put(:base_url, System.get_env("GITLAB_URL", "https://gitlab.com"))
   end
 end
