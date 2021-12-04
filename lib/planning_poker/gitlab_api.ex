@@ -1,5 +1,6 @@
 defmodule PlanningPoker.GitlabApi do
   use Tesla
+  require Logger
 
   def default_client do
     middleware = [
@@ -61,7 +62,7 @@ defmodule PlanningPoker.GitlabApi do
   """
   def fetch_issues(client, opts \\ []) do
     # default id is "Open" list of https://gitlab.com/1st8/planning_poker/-/boards/3468418
-    list_id = Keyword.get(opts, :list_id, 9_945_417)
+    list_id = Keyword.get(opts, :list_id, System.get_env("DEFAULT_LIST_ID") || 9_945_417)
 
     {:ok, env} =
       post(client, "/api/graphql", %{
@@ -73,12 +74,17 @@ defmodule PlanningPoker.GitlabApi do
         query: @board_list_query
       })
 
-    get_in(env.body, [
-      "data",
-      "boardList",
-      "issues",
-      "nodes"
-    ])
+    issues =
+      get_in(env.body, [
+        "data",
+        "boardList",
+        "issues",
+        "nodes"
+      ])
+
+    Logger.debug("Fetched #{Enum.count(issues)} issues list_id=#{inspect(list_id)}")
+
+    issues
   end
 
   def fetch_issue(client, issue_id, _opts \\ []) do
