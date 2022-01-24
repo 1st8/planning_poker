@@ -60,7 +60,8 @@
     <h2 class="">Participants</h2>
     <ul>
     <%= for participant <- @participants do %>
-      <li>
+      <li class="flex">
+      <img class="h-6 mr-2" src={participant.avatar} aria-hidden="true" />
       <%= participant.name %>
       <%= if participant[:vote] do %>
         ✔️

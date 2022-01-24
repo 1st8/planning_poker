@@ -24,13 +24,14 @@ defmodule PlanningPoker.PlanningSession do
   end
 
   @impl :gen_statem
-  def init(%{id: id}) do
+  def init(%{id: id, token: token}) do
     {:ok, :lobby,
      %{
        id: id,
        start: DateTime.utc_now(),
        options: [1, 2, 3, 5, 8, 13, 21, "?"] |> Enum.map(&to_string/1),
-       issues: []
+       issues: [],
+       token: token
      }}
   end
 
@@ -126,7 +127,7 @@ defmodule PlanningPoker.PlanningSession do
 
   defp to_payload(state, data) do
     data
-    |> Map.drop([:fetch_issues_ref, :fetch_issue_ref])
+    |> Map.drop([:token, :fetch_issues_ref, :fetch_issue_ref])
     |> Map.merge(%{
       state: state,
       fetching: Map.has_key?(data, :fetch_issues_ref),
@@ -149,7 +150,7 @@ defmodule PlanningPoker.PlanningSession do
   defp fetch_issues(data) do
     task =
       Task.Supervisor.async_nolink(PlanningPoker.TaskSupervisor, fn ->
-        GitlabApi.fetch_issues(GitlabApi.default_client())
+        GitlabApi.fetch_issues(GitlabApi.default_client(token: data.token))
       end)
 
     Map.put(data, :fetch_issues_ref, task.ref)
@@ -158,7 +159,7 @@ defmodule PlanningPoker.PlanningSession do
   defp fetch_current_issue(data) do
     task =
       Task.Supervisor.async_nolink(PlanningPoker.TaskSupervisor, fn ->
-        GitlabApi.fetch_issue(GitlabApi.default_client(), data.current_issue["id"])
+        GitlabApi.fetch_issue(GitlabApi.default_client(token: data.token), data.current_issue["id"])
       end)
 
     Map.put(data, :fetch_issue_ref, task.ref)

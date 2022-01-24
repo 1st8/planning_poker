@@ -1,6 +1,13 @@
 defmodule PlanningPoker.Planning do
   alias PlanningPoker.Presence
 
+  def ensure_started(id, token) do
+    PlanningPoker.PlanningSession.start_link(
+      name: {:via, Registry, {PlanningPoker.PlanningSession.Registry, id}},
+      args: %{id: id, token: token}
+    )
+  end
+
   def subscribe_and_monitor(id) do
     Phoenix.PubSub.subscribe(PlanningPoker.PubSub, planning_session_topic(id))
     Process.monitor(id |> to_pid)

@@ -7,8 +7,9 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
   require Logger
 
   @impl true
-  def mount(params, %{"participant" => participant}, socket) do
+  def mount(params, %{"current_user" => participant, "token" => token}, socket) do
     id = Map.get(params, "id", "default")
+    Planning.ensure_started(id, token)
 
     socket =
       if connected?(socket) do
@@ -83,10 +84,12 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     current_participant =
       Enum.find(participants, fn p -> p.id == socket.assigns.current_participant.id end)
 
-    {:noreply,
-     socket
-     |> assign(:participants, participants)
-     |> assign(:current_participant, current_participant)}
+    {
+      :noreply,
+      socket
+      |> assign(:participants, participants)
+      |> assign(:current_participant, current_participant)
+    }
   end
 
   # PlanningSession DOWN handler

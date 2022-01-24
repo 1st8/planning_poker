@@ -14,12 +14,20 @@ defmodule PlanningPokerWeb.Router do
     plug :accepts, ["json"]
   end
 
+  scope "/auth", PlanningPokerWeb do
+    pipe_through :browser
+
+    get "/:provider", AuthController, :request
+    get "/:provider/callback", AuthController, :callback
+    post "/:provider/callback", AuthController, :callback
+    delete "/logout", AuthController, :delete
+  end
+
   scope "/", PlanningPokerWeb do
     pipe_through :browser
 
     live "/", PlanningSessionLive.Show
     get "/participate", ParticipationsController, :new
-    post "/participate", ParticipationsController, :create
   end
 
   # Other scopes may use custom stacks.

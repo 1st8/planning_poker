@@ -40,3 +40,9 @@ if config_env() == :prod do
   # Then you can assemble a release by calling `mix release`.
   # See `mix help release` for more information.
 end
+
+config :ueberauth, Ueberauth.Strategy.Gitlab.OAuth,
+  site: System.get_env("GITLAB_SITE", "https://gitlab.com"),
+  client_id: System.get_env("GITLAB_CLIENT_ID"),
+  client_secret: System.get_env("GITLAB_CLIENT_SECRET"),
+  redirect_uri: System.get_env("GITLAB_REDIRECT_URI")
