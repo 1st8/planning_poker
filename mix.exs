@@ -58,8 +58,12 @@ defmodule PlanningPoker.MixProject do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
-      setup: ["deps.get"],
-      "assets.deploy": ["esbuild default --minify", "phx.digest"]
+      setup: ["deps.get", "cmd --cd assets npm install"],
+      "assets.deploy": [
+        "cmd --cd assets npm run prod:js",
+        "cmd --cd assets npm run prod:css",
+        "phx.digest"
+      ]
     ]
   end
 end

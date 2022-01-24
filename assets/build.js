@@ -50,8 +50,12 @@ require("esbuild")
     outdir: "../priv/static/assets",
     external: ["/css/*", "/fonts/*", "/images/*"],
     nodePaths: ["../deps"],
-    sourcemap: "inline", // dev only
-    watch: true, // dev only
+    sourcemap: process.env.NODE_ENV === "production" ? true : "inline",
+    watch: process.env.NODE_ENV !== "production",
+    minify: process.env.NODE_ENV === "production",
     plugins: [sveltePlugin],
   })
-  .catch(() => process.exit(1));
+  .catch((e) => {
+    console.error(e.message);
+    process.exit(1);
+  });
