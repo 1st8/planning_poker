@@ -2,10 +2,10 @@ defmodule PlanningPoker.GitlabApi do
   use Tesla
   require Logger
 
-  def default_client do
+  def default_client(token: token) do
     middleware = [
-      {Tesla.Middleware.BaseUrl, System.get_env("GITLAB_URL", "https://gitlab.com")},
-      {Tesla.Middleware.Headers, [{"PRIVATE-TOKEN", System.fetch_env!("GITLAB_API_TOKEN")}]},
+      {Tesla.Middleware.BaseUrl, System.get_env("GITLAB_SITE", "https://gitlab.com")},
+      {Tesla.Middleware.Headers, [{"PRIVATE-TOKEN", token}]},
       Tesla.Middleware.JSON
     ]
 

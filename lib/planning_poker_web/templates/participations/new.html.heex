@@ -1,7 +1,12 @@
-<h1>Wer bist du?</h1>
 
-<%= form_for @conn, Routes.participations_path(@conn, :create), fn f -> %>
-  <label for="participant-name">Name</label>
-  <%= text_input f, :name %>
-  <button>Beitreten</button>
+<%= if @current_user do %>
+  <p>
+    Hallo <%= @current_user.name %>
+  </p>
+  <a href="/" class="btn btn-primary">Zum Planning</a>
+  <%= form_tag("/auth/logout", method: "delete") do %>
+    <button type="submit" class="btn btn-secondary">Abmelden</button>
+  <% end %>
+<% else %>
+  <a href="/auth/gitlab" class="btn btn-primary">Mit Gitlab anmelden</a>
 <% end %>

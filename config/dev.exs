@@ -21,6 +21,8 @@ config :planning_poker, PlanningPokerWeb.Endpoint,
     npm: ["run", "dev:css", cd: Path.expand("../assets", __DIR__)]
   ]
 
+# config :oauth2, debug: true
+
 # ## SSL Support
 #
 # In order to use HTTPS in development, a self-signed

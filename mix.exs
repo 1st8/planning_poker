@@ -44,7 +44,9 @@ defmodule PlanningPoker.MixProject do
       {:jason, "~> 1.2"},
       {:plug_cowboy, "~> 2.5"},
       {:tesla, git: "https://github.com/teamon/tesla.git"},
-      {:elixir_uuid, "~> 1.2"}
+      {:elixir_uuid, "~> 1.2"},
+      {:ueberauth, "~> 0.7.0"},
+      {:ueberauth_gitlab_strategy, "~> 0.4.0"}
     ]
   end
 
