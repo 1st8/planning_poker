@@ -5,7 +5,7 @@ defmodule PlanningPoker.GitlabApi do
   def default_client(token: token) do
     middleware = [
       {Tesla.Middleware.BaseUrl, System.get_env("GITLAB_SITE", "https://gitlab.com")},
-      {Tesla.Middleware.Headers, [{"PRIVATE-TOKEN", token}]},
+      {Tesla.Middleware.Headers, [{"AUTHORIZATION", "Bearer #{token}"}]},
       Tesla.Middleware.JSON
     ]
 
@@ -80,7 +80,7 @@ defmodule PlanningPoker.GitlabApi do
         "boardList",
         "issues",
         "nodes"
-      ])
+      ]) || []
 
     Logger.debug("Fetched #{Enum.count(issues)} issues list_id=#{inspect(list_id)}")
 
