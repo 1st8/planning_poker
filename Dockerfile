@@ -15,6 +15,28 @@
 ARG BUILDER_IMAGE="hexpm/elixir:1.13.2-erlang-24.1.4-debian-bullseye-20210902-slim"
 ARG RUNNER_IMAGE="debian:bullseye-20210902-slim"
 
+###################
+#
+#   assets stage
+#
+###################
+FROM node:lts-slim as assets
+
+WORKDIR /app
+
+RUN mkdir assets
+COPY assets/package.json assets/package-lock.json assets/
+RUN cd assets && npm ci
+
+COPY lib lib
+COPY assets assets
+RUN cd assets && ls -la && npm run prod:js && npm run prod:css
+
+###################
+#
+#   builder stage
+#
+###################
 FROM ${BUILDER_IMAGE} as builder
 
 # install build dependencies
@@ -43,7 +65,6 @@ COPY config/config.exs config/${MIX_ENV}.exs config/
 RUN mix deps.compile
 
 COPY priv priv
-COPY assets assets
 COPY lib lib
 
 RUN mix compile
@@ -52,10 +73,14 @@ RUN mix compile
 COPY config/runtime.exs config/
 
 COPY rel rel
-RUN mix do assets.deploy, release
+COPY --from=assets /app/priv/static/assets priv/static/assets
+RUN mix do phx.digest, release
 
-# start a new build stage so that the final image will only contain
-# the compiled release and other runtime necessities
+###################
+#
+#   runner stage
+#
+###################
 FROM ${RUNNER_IMAGE}
 
 RUN apt-get update -y && apt-get install -y libstdc++6 openssl libncurses5 locales \

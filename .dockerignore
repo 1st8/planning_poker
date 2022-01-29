@@ -15,4 +15,7 @@ releases
 erl_crash.dump
 
 # Static artifacts
-node_modules
+assets/node_modules
+priv/static/assets
+
+.elixir_ls
