@@ -1,15 +1,18 @@
 {
   "dependencies": {
-    "@tailwindcss/forms": "^0.3.4",
-    "@tailwindcss/typography": "^0.4.1",
+    "@tailwindcss/forms": "^0.4.0",
+    "@tailwindcss/typography": "^0.5.1",
     "autoprefixer": "^10.4.0",
     "cssnano": "^5.0.16",
     "daisyui": "^1.16.0",
     "date-fns": "^2.25.0",
-    "esbuild": "^0.13.13",
+    "esbuild": "^0.14.14",
+    "phoenix": "^1.6.6",
+    "phoenix_html": "^3.2.0",
+    "phoenix_live_view": "^0.17.6",
     "postcss": "^8.3.11",
     "svelte": "^3.44.1",
-    "tailwindcss": "^2.2.19"
+    "tailwindcss": "^3.0.18"
   },
   "scripts": {
     "dev:js": "./build.js",

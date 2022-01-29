@@ -49,7 +49,7 @@ require("esbuild")
     //target: "es2016",
     outdir: "../priv/static/assets",
     external: ["/css/*", "/fonts/*", "/images/*"],
-    nodePaths: ["../deps"],
+    // nodePaths: ["../deps"],
     sourcemap: process.env.NODE_ENV === "production" ? true : "inline",
     watch: process.env.NODE_ENV !== "production",
     minify: process.env.NODE_ENV === "production",
