@@ -21,7 +21,7 @@ config :planning_poker, PlanningPokerWeb.Endpoint,
     npm: ["run", "dev:css", cd: Path.expand("../assets", __DIR__)]
   ]
 
-# config :oauth2, debug: true
+config :oauth2, debug: true
 
 # ## SSL Support
 #
