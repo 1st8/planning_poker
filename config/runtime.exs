@@ -28,6 +28,7 @@ if config_env() == :prod do
       ip: {0, 0, 0, 0, 0, 0, 0, 0},
       port: String.to_integer(System.get_env("PORT") || "4000")
     ],
+    url: [host: System.get_env("HOST", "example.com"), port: 80],
     secret_key_base: secret_key_base
 
   # ## Using releases
@@ -47,4 +48,4 @@ config :ueberauth, Ueberauth.Strategy.Gitlab.OAuth,
   token_url: System.get_env("GITLAB_SITE", "https://gitlab.com") <> "/oauth/token",
   client_id: System.get_env("GITLAB_CLIENT_ID"),
   client_secret: System.get_env("GITLAB_CLIENT_SECRET"),
-  redirect_uri: System.get_env("GITLAB_REDIRECT_URI")
+  redirect_uri: "https://" <> System.get_env("HOST", "example.com") <> "/auth/gitlab/callback"
