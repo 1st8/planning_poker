@@ -42,10 +42,17 @@ if config_env() == :prod do
   # See `mix help release` for more information.
 end
 
+redirect_uri =
+  if config_env() == :dev && System.get_env("HOST") == nil do
+    "http://localhost:4000"
+  else
+    "https://" <> System.get_env("HOST", "example.com")
+  end
+
 config :ueberauth, Ueberauth.Strategy.Gitlab.OAuth,
   site: System.get_env("GITLAB_SITE", "https://gitlab.com"),
   authorize_url: System.get_env("GITLAB_SITE", "https://gitlab.com") <> "/oauth/authorize",
   token_url: System.get_env("GITLAB_SITE", "https://gitlab.com") <> "/oauth/token",
   client_id: System.get_env("GITLAB_CLIENT_ID"),
   client_secret: System.get_env("GITLAB_CLIENT_SECRET"),
-  redirect_uri: "https://" <> System.get_env("HOST", "example.com") <> "/auth/gitlab/callback"
+  redirect_uri: redirect_uri
