@@ -9,6 +9,6 @@ defmodule PlanningPokerWeb.TimerComponent do
   end
 
   def seconds_since(datetime) do
-    DateTime.diff(DateTime.utc_now(), datetime, :seconds)
+    DateTime.diff(DateTime.utc_now(), datetime, :second)
   end
 end
