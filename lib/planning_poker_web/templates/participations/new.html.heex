@@ -1,12 +1,16 @@
-
-<%= if @current_user do %>
-  <p>
-    Hallo <%= @current_user.name %>
-  </p>
-  <a href="/" class="btn btn-primary">Zum Planning</a>
-  <%= form_tag("/auth/logout", method: "delete") do %>
-    <button type="submit" class="btn btn-secondary">Abmelden</button>
-  <% end %>
-<% else %>
-  <a href="/auth/gitlab" class="btn btn-primary">Mit Gitlab anmelden</a>
-<% end %>
+<div class="min-h-screen flex items-center justify-center">
+  <main class="flex flex-col items-center space-y-16 p-16 border border-8 border-black bg-base-100">
+    <%= if @current_user do %>
+      <p>
+        Hallo <%= @current_user.name %>
+      </p>
+      <a href="/" class="btn btn-primary">Zum Planning</a>
+      <%= form_tag("/auth/logout", method: "delete") do %>
+        <button type="submit" class="btn btn-secondary">Abmelden</button>
+      <% end %>
+    <% else %>
+      <h1 class="text-5xl font-semibold">PlanningPoker</h1>
+      <a href="/auth/gitlab" class="btn btn-primary btn-lg btn-shadow">Mit Gitlab anmelden</a>
+    <% end %>
+  </main>
+</div>

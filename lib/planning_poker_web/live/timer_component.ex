@@ -4,10 +4,7 @@ defmodule PlanningPokerWeb.TimerComponent do
   @impl true
   def render(assigns) do
     ~H"""
-    <div
-      phx-hook="VotingTimer"
-      seconds={seconds_since(@started_at)}
-    />
+    <div id="voting-timer" phx-hook="VotingTimer" seconds={seconds_since(@started_at)} />
     """
   end
 

@@ -31,7 +31,6 @@ defmodule PlanningPokerWeb.AuthController do
     case UserFromAuth.find_or_create(auth) do
       {:ok, user} ->
         conn
-        |> put_flash(:info, "Successfully authenticated.")
         |> put_session(:current_user, user)
         |> put_session(:token, auth.credentials.token)
         |> configure_session(renew: true)

@@ -47,7 +47,7 @@ redirect_uri =
     "http://localhost:4000"
   else
     "https://" <> System.get_env("HOST", "example.com")
-  end
+  end <> "/auth/gitlab/callback"
 
 config :ueberauth, Ueberauth.Strategy.Gitlab.OAuth,
   site: System.get_env("GITLAB_SITE", "https://gitlab.com"),
