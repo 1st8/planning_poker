@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="retro">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="utf-8"/>
     <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
@@ -12,7 +12,7 @@
   <body>
     <%= @inner_content %>
 
-    <footer>
+    <footer class="hidden">
       <%= if function_exported?(Routes, :live_dashboard_path, 2) do %>
         <%= link "LiveDashboard", to: Routes.live_dashboard_path(@conn, :home) %>
       <% end %>
