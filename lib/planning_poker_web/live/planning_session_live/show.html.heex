@@ -1,204 +1,71 @@
 <div class="grid grid-cols-4 gap-8 p-8 items-start">
-  <div class="flex flex-col gap-8 col-span-3 bg-base-100 border-8 border-black p-8">
+  <div class="col-span-3">
     <%= case @planning_session do %>
       <% %{state: :lobby} = data -> %>
-        <div class="flex items-center bg-black -m-8 mb-0 px-8 py-2 border-b-8 border-black">
-          <h2 class="grow font-bold text-white uppercase">Issues</h2>
-
-          <%= if data.fetching do %>
-            <button class="btn btn-primary btn-xs loading" disabled phx-click="refresh_issues">
-              Loading...
-            </button>
-          <% else %>
-            <button class="btn btn-primary btn-xs" phx-click="refresh_issues">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 512 512"
-                class="icon mr-1"
-                aria-hidden="true"
-                focusable="false"
-              ><!--! Font Awesome Pro 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2022 Fonticons, Inc. --><path
-  fill="currentColor"
-  d="M496 48V192c0 17.69-14.31 32-32 32H320c-17.69 0-32-14.31-32-32s14.31-32 32-32h63.39c-29.97-39.7-77.25-63.78-127.6-63.78C167.7 96.22 96 167.9 96 256s71.69 159.8 159.8 159.8c34.88 0 68.03-11.03 95.88-31.94c14.22-10.53 34.22-7.75 44.81 6.375c10.59 14.16 7.75 34.22-6.375 44.81c-39.03 29.28-85.36 44.86-134.2 44.86C132.5 479.9 32 379.4 32 256s100.5-223.9 223.9-223.9c69.15 0 134 32.47 176.1 86.12V48c0-17.69 14.31-32 32-32S496 30.31 496 48z"
-/></svg>Refresh
-            </button>
-          <% end %>
-        </div>
-        <ol class="grid 2xl:grid-cols-2 gap-8">
-          <%= for issue <- data.issues do %>
-            <li class="flex bg-base-300 rounded-lg">
-              <div class="grow px-4 py-3">
-                <a
-                  class="block text-lg font-medium underline decoration-primary hover:decoration-primary/50 decoration-2"
-                  href={issue["webUrl"]}
-                  target="_blank"
-                >
-                  <%= issue["title"] %>
-                </a>
-                <small class="text-sm"><%= issue["referencePath"] %></small>
-              </div>
-              <button
-                class="btn btn-accent btn-shadow btn-lg h-auto"
-                phx-click="start_voting"
-                phx-value-issue_id={issue["id"]}
-              >
-                Plan
-              </button>
-            </li>
-          <% end %>
-        </ol>
+        <.live_component
+          module={PlanningPokerWeb.PlanningSessionLive.LobbyComponent}
+          id="lobby"
+          data={data}
+        />
       <% %{state: :voting, current_issue: issue} -> %>
-        <h1 class="text-4xl font-semibold">
-          <a
-            class="underline decoration-primary hover:decoration-primary/50 decoration-4"
-            href={issue["webUrl"]}
-            target="_blank"
-          >
-            <%= issue["title"] %>
-          </a>
-        </h1>
-        <div
-          id="issue-description"
-          class="prose prose-lg"
-          phx-hook="LazyImages"
-          data-base-url={issue[:base_url]}
-        >
-          <%= raw(issue["descriptionHtml"]) %>
-        </div>
-        <button class="btn" phx-click="finish_voting">Finish Voting</button>
+        <.live_component
+          module={PlanningPokerWeb.PlanningSessionLive.VotingComponent}
+          id="voting"
+          issue={issue}
+        />
       <% %{state: :results, current_issue: issue} -> %>
-        <h1 class="font-bold bg-black text-white uppercase -m-8 mb-0 px-8 py-2 border-b-8 border-black">
-          Results
-        </h1>
-        <h2 class="text-3xl font-semibold">
-          <a
-            class="underline decoration-primary hover:decoration-primary/50 decoration-4"
-            href={issue["webUrl"]}
-            target="_blank"
-          >
-            <%= issue["title"] %>
-          </a>
-        </h2>
-        <div class="flex flex-wrap gap-8 items-center">
-          <% votes =
+        <.live_component
+          module={PlanningPokerWeb.PlanningSessionLive.ResultsComponent}
+          id="results"
+          issue={issue}
+          votes={
             @participants
             |> Enum.filter(& &1[:vote])
             |> Enum.sort_by(& &1[:vote])
-            |> Enum.reverse() %>
-
-          <% :rand.seed(
-            :exsss,
-            Enum.map(votes, fn %{vote: vote} -> String.to_integer(vote) end) |> Enum.sum()
-          ) %>
-          <% classes =
-            votes
+            |> Enum.reverse()
+          }
+          classes={
+            @participants
+            |> Enum.filter(& &1[:vote])
             |> Enum.map(& &1[:vote])
             |> Enum.uniq()
-            |> Enum.zip(
-              [
-                {"bg-primary", "text-primary-content"},
-                {"bg-secondary", "text-secondary-content"},
-                {"bg-accent", "text-accent-content"},
-                {"bg-neutral", "text-neutral-content"},
-                {"bg-info", "text-info-content"},
-                {"bg-success", "text-success-content"},
-                {"bg-warning", "text-warning-content"},
-                {"bg-error", "text-error-content"}
-              ]
-              |> Enum.shuffle()
-            )
-            |> Map.new() %>
-          <%= for vote <- votes do %>
-            <% {bg, text} = classes[vote[:vote]] %>
-            <div class={
-              "#{bg} #{text} flex flex-col items-stretch text-center border-4 border-black w-32 rounded-2xl"
-            }>
-              <strong class="text-8xl leading-normal"><%= vote[:vote] %></strong>
-
-              <span class="bg-black text-white text-lg font-semibold truncate py-2">
-                <%= vote.name |> String.split(" ") |> List.first() %>
-              </span>
-            </div>
-          <% end %>
-        </div>
-        <button class="btn" phx-click="commit_results">Back to lobby</button>
+            |> Enum.zip([
+              {"bg-primary", "text-primary-content"},
+              {"bg-secondary", "text-secondary-content"},
+              {"bg-accent", "text-accent-content"},
+              {"bg-neutral", "text-neutral-content"},
+              {"bg-info", "text-info-content"},
+              {"bg-success", "text-success-content"},
+              {"bg-warning", "text-warning-content"},
+              {"bg-error", "text-error-content"}
+            ])
+            |> Enum.shuffle()
+            |> Map.new()
+          }
+        />
       <% data -> %>
         <pre>unknown state <%= inspect(data) %></pre>
     <% end %>
   </div>
   <div class="space-y-8">
     <%= if @planning_session.state == :voting do %>
-      <div class="flex flex-col gap-8 bg-base-100 border-8 border-black p-8">
-        <div class="flex flex-col gap-8">
-          <h2 class="font-bold bg-black text-white uppercase -m-8 mb-0 px-8 py-2 border-b-8 border-black">
-            Your Vote
-          </h2>
-          <div class="grid lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2 lg:gap-4">
-            <%= for option <- @planning_session.options do %>
-              <button
-                class={
-                  "btn btn-primary #{(@current_participant[:vote] == option && "btn-accent btn-active") || ""} btn-lg text-2xl btn-shadow"
-                }
-                value={option}
-                phx-click="cast_vote"
-              >
-                <%= option %>
-              </button>
-            <% end %>
-          </div>
-        </div>
-      </div>
+      <.live_component
+        module={PlanningPokerWeb.PlanningSessionLive.VotingControlsComponent}
+        id="voting-controls"
+        options={@planning_session.options}
+        current_participant={@current_participant}
+      />
     <% end %>
 
-    <div class="flex flex-col gap-8 bg-base-100 border-8 border-black p-8">
-      <div class="flex flex-col gap-8">
-        <div class="flex items-center bg-black -m-8 mb-0 px-8 pr-2 py-2 border-b-8 border-black">
-          <h2 class="grow font-bold text-white uppercase">Participants</h2>
+    <.live_component
+      module={PlanningPokerWeb.PlanningSessionLive.ParticipantsListComponent}
+      id="participants-list"
+      participants={@participants}
+    />
 
-          <a class="btn btn-secondary btn-xs" href="/participate" title="Settings">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 512 512"
-              class="icon"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <!--! Font Awesome Pro 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2022 Fonticons, Inc. -->
-              <path
-                fill="currentColor"
-                d="M495.9 166.6C499.2 175.2 496.4 184.9 489.6 191.2L446.3 230.6C447.4 238.9 448 247.4 448 256C448 264.6 447.4 273.1 446.3 281.4L489.6 320.8C496.4 327.1 499.2 336.8 495.9 345.4C491.5 357.3 486.2 368.8 480.2 379.7L475.5 387.8C468.9 398.8 461.5 409.2 453.4 419.1C447.4 426.2 437.7 428.7 428.9 425.9L373.2 408.1C359.8 418.4 344.1 427 329.2 433.6L316.7 490.7C314.7 499.7 307.7 506.1 298.5 508.5C284.7 510.8 270.5 512 255.1 512C241.5 512 227.3 510.8 213.5 508.5C204.3 506.1 197.3 499.7 195.3 490.7L182.8 433.6C167 427 152.2 418.4 138.8 408.1L83.14 425.9C74.3 428.7 64.55 426.2 58.63 419.1C50.52 409.2 43.12 398.8 36.52 387.8L31.84 379.7C25.77 368.8 20.49 357.3 16.06 345.4C12.82 336.8 15.55 327.1 22.41 320.8L65.67 281.4C64.57 273.1 64 264.6 64 256C64 247.4 64.57 238.9 65.67 230.6L22.41 191.2C15.55 184.9 12.82 175.3 16.06 166.6C20.49 154.7 25.78 143.2 31.84 132.3L36.51 124.2C43.12 113.2 50.52 102.8 58.63 92.95C64.55 85.8 74.3 83.32 83.14 86.14L138.8 103.9C152.2 93.56 167 84.96 182.8 78.43L195.3 21.33C197.3 12.25 204.3 5.04 213.5 3.51C227.3 1.201 241.5 0 256 0C270.5 0 284.7 1.201 298.5 3.51C307.7 5.04 314.7 12.25 316.7 21.33L329.2 78.43C344.1 84.96 359.8 93.56 373.2 103.9L428.9 86.14C437.7 83.32 447.4 85.8 453.4 92.95C461.5 102.8 468.9 113.2 475.5 124.2L480.2 132.3C486.2 143.2 491.5 154.7 495.9 166.6V166.6zM256 336C300.2 336 336 300.2 336 255.1C336 211.8 300.2 175.1 256 175.1C211.8 175.1 176 211.8 176 255.1C176 300.2 211.8 336 256 336z"
-              />
-            </svg>
-          </a>
-        </div>
-        <ul>
-          <%= for participant <- @participants do %>
-            <li class="flex">
-              <img class="h-6 mr-2" src={participant.avatar} aria-hidden="true" />
-              <%= participant.name |> String.split(" ") |> List.first() %>
-              <%= if participant[:vote] do %>
-                ✔️
-              <% end %>
-            </li>
-          <% end %>
-        </ul>
-      </div>
-    </div>
-    <div class="flex flex-col items-center">
+    <div class="flex flex-col items-center gap-4">
       <Layouts.theme_toggle />
+      <button phx-click="kill_planning_session" class="btn btn-warning btn-sm hidden">Kill</button>
     </div>
   </div>
-</div>
-
-<div class="hidden">
-  <h1>dev stuff</h1>
-  <h2>current_participant</h2>
-  <pre><%= inspect(@current_participant, pretty: true) %></pre>
-  <h2>participants</h2>
-  <pre><%= inspect(@participants, pretty: true) %></pre>
-  <h2>
-    state machine
-    <button phx-click="kill_planning_session" class="btn btn-warning btn-xs">Kill</button>
-  </h2>
-  <pre><%= inspect(@planning_session, pretty: true) %></pre>
 </div>

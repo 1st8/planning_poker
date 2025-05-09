@@ -73,7 +73,9 @@ config :ueberauth, Ueberauth,
   ]
 
 if config_env() in [:dev, :test] do
-  import_config ".env.exs"
+  if File.exists?(Path.join(__DIR__, ".env.exs")) do
+    import_config ".env.exs"
+  end
 end
 
 # Import environment specific config. This must remain at the bottom
