@@ -7,8 +7,18 @@ config :planning_poker, PlanningPokerWeb.Endpoint,
   secret_key_base: "EyshxAr/484macsMekOSZstch+j/WYdqOi2dDbL6hnkCMyCoKoqz5f7lblGI0C7o",
   server: false
 
+# In test we don't send emails
+config :planning_poker, PlanningPoker.Mailer, adapter: Swoosh.Adapters.Test
+
+# Disable swoosh api client as it is only required for production adapters
+config :swoosh, :api_client, false
+
 # Print only warnings and errors during test
-config :logger, level: :warn
+config :logger, level: :warning
 
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime
+
+# Enable helpful, but potentially expensive runtime checks
+config :phoenix_live_view,
+  enable_expensive_runtime_checks: true

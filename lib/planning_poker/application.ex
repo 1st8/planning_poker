@@ -8,17 +8,16 @@ defmodule PlanningPoker.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      # Start the Telemetry supervisor
       PlanningPokerWeb.Telemetry,
-      # Start the PubSub system
+      {DNSCluster, query: Application.get_env(:planning_poker, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: PlanningPoker.PubSub},
       PlanningPoker.Presence,
-      # Start the Endpoint (http/https)
-      PlanningPokerWeb.Endpoint,
       # Start a worker by calling: PlanningPoker.Worker.start_link(arg)
-      # {PlanningPoker.Worker, arg}
+      # {PlanningPoker.Worker, arg},
       {Task.Supervisor, name: PlanningPoker.TaskSupervisor},
-      {Registry, [name: PlanningPoker.PlanningSession.Registry, keys: :unique]}
+      {Registry, [name: PlanningPoker.PlanningSession.Registry, keys: :unique]},
+      # Start to serve requests, typically the last entry
+      PlanningPokerWeb.Endpoint
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

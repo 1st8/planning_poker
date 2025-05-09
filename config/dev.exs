@@ -4,8 +4,8 @@ import Config
 # debugging and code reloading.
 #
 # The watchers configuration can be used to run external
-# watchers to your application. For example, we use it
-# with esbuild to bundle .js and .css sources.
+# watchers to your application. For example, we can use it
+# to bundle .js and .css sources.
 config :planning_poker, PlanningPokerWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
@@ -15,13 +15,9 @@ config :planning_poker, PlanningPokerWeb.Endpoint,
   debug_errors: true,
   secret_key_base: "yyJkhN1lJdCtYAbQrgH8DVf+FWlGFEGdUSsmeI7pcTgc9EjNuzXt0AYj4VXSrJQG",
   watchers: [
-    # Start the esbuild watcher
-    npm: ["run", "dev:js", cd: Path.expand("../assets", __DIR__)],
-    # Start the postcss/tailwind watcher
-    npm: ["run", "dev:css", cd: Path.expand("../assets", __DIR__)]
+    esbuild: {Esbuild, :install_and_run, [:planning_poker, ~w(--sourcemap=inline --watch)]},
+    tailwind: {Tailwind, :install_and_run, [:planning_poker, ~w(--watch)]}
   ]
-
-config :oauth2, debug: true
 
 # ## SSL Support
 #
@@ -31,7 +27,6 @@ config :oauth2, debug: true
 #
 #     mix phx.gen.cert
 #
-# Note that this task requires Erlang/OTP 20 or later.
 # Run `mix help phx.gen.cert` for more information.
 #
 # The `http:` config above can be replaced with:
@@ -50,15 +45,19 @@ config :oauth2, debug: true
 # Watch static and templates for browser reloading.
 config :planning_poker, PlanningPokerWeb.Endpoint,
   live_reload: [
+    web_console_logger: true,
     patterns: [
-      ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
-      ~r"lib/planning_poker_web/(live|views)/.*(ex)$",
-      ~r"lib/planning_poker_web/templates/.*(eex)$"
+      ~r"priv/static/(?!uploads/).*(js|css|png|jpeg|jpg|gif|svg)$",
+      ~r"priv/gettext/.*(po)$",
+      ~r"lib/planning_poker_web/(controllers|live|components)/.*(ex|heex)$"
     ]
   ]
 
+# Enable dev routes for dashboard and mailbox
+config :planning_poker, dev_routes: true
+
 # Do not include metadata nor timestamps in development logs
-config :logger, :console, format: "[$level] $message\n"
+config :logger, :default_formatter, format: "[$level] $message\n"
 
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.
@@ -66,3 +65,13 @@ config :phoenix, :stacktrace_depth, 20
 
 # Initialize plugs at runtime for faster development compilation
 config :phoenix, :plug_init_mode, :runtime
+
+config :phoenix_live_view,
+  # Include HEEx debug annotations as HTML comments in rendered markup.
+  # Changing this configuration will require mix clean and a full recompile.
+  debug_heex_annotations: true,
+  # Enable helpful, but potentially expensive runtime checks
+  enable_expensive_runtime_checks: true
+
+# Disable swoosh api client as it is only required for production adapters.
+config :swoosh, :api_client, false
