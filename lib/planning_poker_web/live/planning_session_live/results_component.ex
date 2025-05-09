@@ -1,6 +1,8 @@
 defmodule PlanningPokerWeb.PlanningSessionLive.ResultsComponent do
   use PlanningPokerWeb, :live_component
 
+  import PlanningPokerWeb.PlanningSessionLive.ParticipantsListComponent, only: [render_name: 2]
+
   def render(assigns) do
     ~H"""
     <main>
@@ -16,7 +18,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.ResultsComponent do
             <div class={"#{bg} #{text} flex flex-col items-stretch text-center border-4 border-black w-32 rounded-2xl"}>
               <strong class="text-8xl leading-normal"><%= vote[:vote] %></strong>
               <span class="bg-black text-white text-lg font-semibold truncate py-2">
-                <%= vote.name |> String.split(" ") |> List.first() %>
+                <%= render_name(vote, @votes) %>
               </span>
             </div>
           <% end %>

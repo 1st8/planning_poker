@@ -5,7 +5,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.ParticipantsListComponent do
     ~H"""
     <aside>
       <.layout_box title="Participants">
-        <ul>
+        <ul class="flex flex-col gap-1">
           <%= for participant <- @participants do %>
             <li class="flex items-center gap-2 relative">
               <div class="avatar h-10 w-10">
@@ -14,7 +14,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.ParticipantsListComponent do
                   <.icon name="hero-check-badge-solid" class="text-success absolute h-10 w-10" />
                 <% end %>
               </div>
-              {participant.name |> String.split(" ") |> List.first()}
+              <%= render_name(participant, @participants) %>
             </li>
           <% end %>
         </ul>
@@ -26,5 +26,18 @@ defmodule PlanningPokerWeb.PlanningSessionLive.ParticipantsListComponent do
       </.layout_box>
     </aside>
     """
+  end
+
+  # Helper function to render participant names
+  def render_name(participant, participants) do
+    first_name = participant.name |> String.split(" ") |> List.first()
+    occurrences = Enum.count(participants, fn p -> String.split(p.name, " ") |> List.first() == first_name end)
+
+    if occurrences > 1 do
+      last_name_initial = participant.name |> String.split(" ") |> List.last() |> String.first()
+      "#{first_name} #{last_name_initial}."
+    else
+      first_name
+    end
   end
 end
