@@ -75,6 +75,14 @@ defmodule PlanningPoker.Planning do
     id |> to_pid |> Process.exit(:kill)
   end
 
+  def change_mode(session_id, new_mode) do
+    session_id |> to_pid |> :gen_statem.call({:change_mode, new_mode})
+  end
+
+  def back_to_lobby(session_id) do
+    session_id |> to_pid |> :gen_statem.call(:back_to_lobby)
+  end
+
   def to_pid(id) do
     [{pid, _value}] = Registry.lookup(PlanningPoker.PlanningSession.Registry, id)
     pid

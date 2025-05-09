@@ -14,7 +14,9 @@ defmodule PlanningPokerWeb.PlanningSessionLive.VotingComponent do
           <%= raw(@issue["descriptionHtml"]) %>
         </div>
         <:controls>
-          <button class="btn" phx-click="finish_voting">Finish Voting</button>
+          <button class="btn" phx-click={if @mode == :magic_estimation, do: "back_to_lobby", else: "finish_voting"}>
+            <%= if @mode == :magic_estimation, do: "Back", else: "Finish Voting" %>
+          </button>
         </:controls>
       </.layout_box>
     </main>

@@ -12,6 +12,7 @@
           module={PlanningPokerWeb.PlanningSessionLive.VotingComponent}
           id="voting"
           issue={issue}
+          mode={@planning_session.mode}
         />
       <% %{state: :results, current_issue: issue} -> %>
         <.live_component
@@ -48,7 +49,7 @@
     <% end %>
   </div>
   <div class="space-y-8">
-    <%= if @planning_session.state == :voting do %>
+    <%= if @planning_session.state == :voting and @planning_session.mode != :magic_estimation do %>
       <.live_component
         module={PlanningPokerWeb.PlanningSessionLive.VotingControlsComponent}
         id="voting-controls"
@@ -65,7 +66,12 @@
 
     <div class="flex flex-col items-center gap-4">
       <Layouts.theme_toggle />
-      <button phx-click="kill_planning_session" class="btn btn-warning btn-sm hidden">Kill</button>
+      <%= if @planning_session.state == :lobby do %>
+        <button phx-click="change_mode" class="btn btn-primary btn-sm">
+          Change mode to <%= if @planning_session.mode == :magic_estimation, do: "PlanningPoker", else: "MagicEstimation" %>
+        </button>
+      <% end %>
+      <button phx-click="kill_planning_session" id="kill-button" class="btn btn-warning btn-sm hidden recently_opened">Kill</button>
     </div>
   </div>
 </div>
