@@ -7,7 +7,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.LobbyComponent do
       <.layout_box title="Issues">
         <ol class="grid 2xl:grid-cols-2 gap-8">
           <%= for issue <- @data.issues do %>
-            <li class="flex bg-base-300 rounded-lg">
+            <li class="flex bg-base-300 rounded-lg rounded-r-full">
               <div class="grow px-4 py-3">
                 <a class="block text-lg font-medium underline decoration-primary hover:decoration-primary/50 decoration-2" href={issue["webUrl"]} target="_blank">
                   <%= issue["title"] %>
