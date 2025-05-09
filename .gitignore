@@ -19,6 +19,9 @@ erl_crash.dump
 # Also ignore archive artifacts (built via "mix archive.build").
 *.ez
 
+# Temporary files, for example, from tests.
+/tmp/
+
 # Ignore package tarball (built via "mix hex.build").
 planning_poker-*.tar
 
@@ -32,4 +35,5 @@ planning_poker-*.tar
 npm-debug.log
 /assets/node_modules/
 
-.env
+.elixir_ls
+config/.env.exs

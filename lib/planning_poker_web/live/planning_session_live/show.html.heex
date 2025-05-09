@@ -3,7 +3,7 @@
     <%= case @planning_session do %>
       <% %{state: :lobby} = data -> %>
         <div class="flex items-center bg-black -m-8 mb-0 px-8 py-2 border-b-8 border-black">
-          <h2 class="grow font-bold text-base-100 uppercase">Issues</h2>
+          <h2 class="grow font-bold text-white uppercase">Issues</h2>
 
           <%= if data.fetching do %>
             <button class="btn btn-primary btn-xs loading" disabled phx-click="refresh_issues">
@@ -67,7 +67,7 @@
         </div>
         <button class="btn" phx-click="finish_voting">Finish Voting</button>
       <% %{state: :results, current_issue: issue} -> %>
-        <h1 class="font-bold bg-black text-base-100 uppercase -m-8 mb-0 px-8 py-2 border-b-8 border-black">
+        <h1 class="font-bold bg-black text-white uppercase -m-8 mb-0 px-8 py-2 border-b-8 border-black">
           Results
         </h1>
         <h2 class="text-3xl font-semibold">
@@ -115,7 +115,7 @@
             }>
               <strong class="text-8xl leading-normal"><%= vote[:vote] %></strong>
 
-              <span class="bg-black text-base-100 text-lg font-semibold truncate py-2">
+              <span class="bg-black text-white text-lg font-semibold truncate py-2">
                 <%= vote.name |> String.split(" ") |> List.first() %>
               </span>
             </div>
@@ -130,7 +130,7 @@
     <%= if @planning_session.state == :voting do %>
       <div class="flex flex-col gap-8 bg-base-100 border-8 border-black p-8">
         <div class="flex flex-col gap-8">
-          <h2 class="font-bold bg-black text-base-100 uppercase -m-8 mb-0 px-8 py-2 border-b-8 border-black">
+          <h2 class="font-bold bg-black text-white uppercase -m-8 mb-0 px-8 py-2 border-b-8 border-black">
             Your Vote
           </h2>
           <div class="grid lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2 lg:gap-4">
@@ -153,7 +153,7 @@
     <div class="flex flex-col gap-8 bg-base-100 border-8 border-black p-8">
       <div class="flex flex-col gap-8">
         <div class="flex items-center bg-black -m-8 mb-0 px-8 pr-2 py-2 border-b-8 border-black">
-          <h2 class="grow font-bold text-base-100 uppercase">Participants</h2>
+          <h2 class="grow font-bold text-white uppercase">Participants</h2>
 
           <a class="btn btn-secondary btn-xs" href="/participate" title="Settings">
             <svg
@@ -182,15 +182,10 @@
             </li>
           <% end %>
         </ul>
-
-        <%= if @planning_session.state == :voting do %>
-          <.live_component
-            module={TimerComponent}
-            started_at={@planning_session.voting_started_at}
-            id="voting-timer"
-          />
-        <% end %>
       </div>
+    </div>
+    <div class="flex flex-col items-center">
+      <Layouts.theme_toggle />
     </div>
   </div>
 </div>

@@ -2,7 +2,6 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
   use PlanningPokerWeb, :live_view
 
   alias PlanningPoker.Planning
-  alias PlanningPokerWeb.TimerComponent
 
   require Logger
 
@@ -97,7 +96,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
         {:DOWN, monitor_ref, :process, _, reason},
         %{assigns: %{monitor_ref: monitor_ref}} = socket
       ) do
-    Logger.warn("PlanningSession died, reason=#{inspect(reason)}")
+    Logger.warning("PlanningSession died, reason=#{inspect(reason)}")
     Process.send_after(self(), :die, 250)
 
     {:noreply, socket |> put_flash(:error, "Oops, PlanningSession died, dying now too...")}
