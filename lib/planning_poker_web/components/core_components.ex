@@ -458,4 +458,21 @@ defmodule PlanningPokerWeb.CoreComponents do
   def translate_errors(errors, field) when is_list(errors) do
     for {^field, {msg, opts}} <- errors, do: translate_error({msg, opts})
   end
+
+  attr :title, :string, default: nil
+  slot :controls
+
+  def layout_box(assigns) do
+    ~H"""
+    <div class="bg-base-100 border-8 border-black">
+      <div :if={@title} class="flex items-center bg-black px-4 py-2 border-b-8 border-black">
+        <h2 class="grow font-bold text-white uppercase">{@title}</h2>
+        {render_slot(@controls)}
+      </div>
+      <div class="flex flex-col gap-8 p-8">
+        {render_slot(@inner_block)}
+      </div>
+    </div>
+    """
+  end
 end

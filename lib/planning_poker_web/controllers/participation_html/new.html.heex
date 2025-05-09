@@ -1,18 +1,20 @@
 <Layouts.flash_group flash={@flash} />
 <div class="min-h-screen flex flex-col gap-4 items-center justify-center">
-  <main class="flex flex-col items-center space-y-16 p-16 border border-8 border-black bg-base-100">
-    <%= if @current_user do %>
-      <p>
-        Hallo <%= @current_user.name %>
-      </p>
-      <a href="/" class="btn btn-primary btn-lg btn-shadow">Zum Planning</a>
-      <.form action="/auth/logout" method="delete" for={%{}}>
-        <button type="submit" class="btn btn-accent btn-soft">Abmelden</button>
-      </.form>
-    <% else %>
-      <h1 class="text-5xl font-semibold">PlanningPoker</h1>
-      <a href="/auth/gitlab" class="btn btn-primary btn-lg btn-shadow">Mit Gitlab anmelden</a>
-    <% end %>
-  </main>
+  <.layout_box>
+    <main class="flex flex-col items-center gap-16 p-12">
+      <%= if @current_user do %>
+        <p>
+          Hallo {@current_user.name}
+        </p>
+        <a href="/" class="btn btn-primary btn-lg btn-shadow">Zum Planning</a>
+        <.form action="/auth/logout" method="delete" for={%{}}>
+          <button type="submit" class="btn btn-accent btn-soft">Abmelden</button>
+        </.form>
+      <% else %>
+        <h1 class="text-5xl font-semibold">PlanningPoker</h1>
+        <a href="/auth/gitlab" class="btn btn-primary btn-lg btn-shadow">Mit Gitlab anmelden</a>
+      <% end %>
+    </main>
+  </.layout_box>
   <Layouts.theme_toggle />
 </div>
