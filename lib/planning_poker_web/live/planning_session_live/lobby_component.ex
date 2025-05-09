@@ -7,15 +7,29 @@ defmodule PlanningPokerWeb.PlanningSessionLive.LobbyComponent do
       <.layout_box title="Issues">
         <ol class="grid 2xl:grid-cols-2 gap-8">
           <%= for issue <- @data.issues do %>
-            <li class="flex bg-base-300 rounded-lg rounded-r-full">
-              <div class="grow px-4 py-3">
-                <a class="block text-lg font-medium underline decoration-primary hover:decoration-primary/50 decoration-2" href={issue["webUrl"]} target="_blank">
-                  <%= issue["title"] %>
+            <li class="flex bg-base-300 rounded-lg rounded-r-full ">
+              <div class="grow px-4 py-3 relative">
+                <a
+                  class="block text-lg font-medium underline decoration-primary hover:decoration-primary/50 decoration-2"
+                  href={issue["webUrl"]}
+                  target="_blank"
+                >
+                  {issue["title"]}
                 </a>
-                <small class="text-sm"><%= issue["referencePath"] %></small>
+                <small class="text-sm">{issue["referencePath"]}</small>
+                <%= if issue["id"] in @data.opened_issue_ids do %>
+                  <.icon
+                    name="hero-check-badge-solid"
+                    class={"text-success absolute h-12 w-12 right-4 top-1/2 transform -translate-y-1/2 rotate-6 pointer-events-none" <> if issue["id"] == @data.most_recent_issue_id, do: " recently_opened", else: ""}
+                  />
+                <% end %>
               </div>
-              <button class="btn btn-accent btn-shadow btn-lg h-auto" phx-click="start_voting" phx-value-issue_id={issue["id"]}>
-                Plan
+              <button
+                class="btn btn-accent btn-shadow btn-lg h-auto"
+                phx-click="start_voting"
+                phx-value-issue_id={issue["id"]}
+              >
+                {if @data.mode == :magic_estimation, do: "View", else: "Plan"}
               </button>
             </li>
           <% end %>
@@ -27,8 +41,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.LobbyComponent do
             </button>
           <% else %>
             <button class="btn btn-primary btn-sm" phx-click="refresh_issues">
-              <.icon name="hero-arrow-path-mini" />
-              Refresh
+              <.icon name="hero-arrow-path-mini" /> Refresh
             </button>
           <% end %>
         </:controls>

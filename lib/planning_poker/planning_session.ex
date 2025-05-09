@@ -31,7 +31,10 @@ defmodule PlanningPoker.PlanningSession do
        start: DateTime.utc_now(),
        options: [1, 2, 3, 5, 8, 13, 21, "?"] |> Enum.map(&to_string/1),
        issues: [],
-       token: token
+       token: token,
+       mode: :magic_estimation,
+       opened_issue_ids: MapSet.new(),
+       most_recent_issue_id: nil
      }}
   end
 
@@ -57,6 +60,8 @@ defmodule PlanningPoker.PlanningSession do
       |> Map.put(:current_issue, current_issue)
       |> fetch_current_issue
       |> Map.put(:voting_started_at, DateTime.utc_now())
+      |> Map.put(:most_recent_issue_id, (if MapSet.member?(data.opened_issue_ids, issue_id), do: nil, else: issue_id))
+      |> Map.put(:opened_issue_ids, MapSet.put(data.opened_issue_ids,issue_id))
 
     broadcast_state_change(:voting, data)
 
@@ -66,6 +71,10 @@ defmodule PlanningPoker.PlanningSession do
   def handle_event({:call, from}, :finish_voting, :voting, data) do
     broadcast_state_change(:results, data)
     {:next_state, :results, data, [{:reply, from, :ok}]}
+  end
+  def handle_event({:call, from}, :back_to_lobby, :voting, data) do
+    broadcast_state_change(:lobby, data)
+    {:next_state, :lobby, data, [{:reply, from, :ok}]}
   end
 
   def handle_event({:call, from}, :commit_results, :results, data) do
@@ -85,6 +94,12 @@ defmodule PlanningPoker.PlanningSession do
 
   def handle_event({:call, from}, :list_issues, _state, data) do
     {:keep_state, data, [{:reply, from, data[:issues]}]}
+  end
+
+  def handle_event({:call, from}, {:change_mode, new_mode}, :lobby, data) do
+    data = Map.put(data, :mode, new_mode)
+    broadcast_state_change(:lobby, data)
+    {:keep_state, data, [{:reply, from, :ok}]}
   end
 
   def handle_event({:call, from}, _event, _content, data) do

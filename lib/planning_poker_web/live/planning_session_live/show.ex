@@ -67,6 +67,17 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     {:noreply, socket}
   end
 
+  def handle_event("change_mode", _value, socket) do
+    new_mode = if socket.assigns.planning_session.mode == :magic_estimation, do: :planning_poker, else: :magic_estimation
+    :ok = Planning.change_mode(socket.assigns.planning_session.id, new_mode)
+    {:noreply, socket}
+  end
+
+  def handle_event("back_to_lobby", _value, socket) do
+    :ok = Planning.back_to_lobby(socket.assigns.planning_session.id)
+    {:noreply, socket}
+  end
+
   @impl true
   def handle_info({:state_change, new_planning_session}, socket) do
     socket =
