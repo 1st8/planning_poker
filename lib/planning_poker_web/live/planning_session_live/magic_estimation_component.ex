@@ -1,6 +1,24 @@
 defmodule PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent do
   use PlanningPokerWeb, :live_component
 
+  # Define a function component for rendering an item (issue or marker)
+  defp render_item(assigns) do
+    ~H"""
+    <%= if @item["type"] == "marker" do %>
+      <div class="marker-card bg-primary text-primary-content rounded-lg p-4 mb-2 cursor-move" data-id={@item["id"]}>
+        <div class="font-medium text-center">⬇️ <%= @item["value"] %> Story Points ⬇️</div>
+      </div>
+    <% else %>
+      <div class="issue-card bg-base-100 rounded-lg p-4 mb-2 cursor-move" data-id={@item["id"]}>
+        <div class="font-medium">
+          <%= @item["title"] %>
+        </div>
+        <small class="text-sm"><%= @item["referencePath"] %></small>
+      </div>
+    <% end %>
+    """
+  end
+
   def render(assigns) do
     ~H"""
     <main>
@@ -9,34 +27,21 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent do
           <div class="issue-column flex flex-col" id="unestimated-issues">
             <h2 class="text-xl font-semibold mb-4">Unestimated Issues</h2>
             <div class="issue-list sortable-list grow" data-column-id="unestimated-issues">
-              <%= for issue <- @unestimated_issues do %>
-                <div class="issue-card bg-base-300 rounded-lg p-4 mb-2 cursor-move" data-id={issue["id"]}>
-                  <div class="font-medium">
-                    <%= issue["title"] %>
-                  </div>
-                  <small class="text-sm"><%= issue["referencePath"] %></small>
-                </div>
+              <%= for item <- @unestimated_issues do %>
+                <.render_item item={item} />
               <% end %>
             </div>
           </div>
           <div class="issue-column flex flex-col" id="estimated-issues">
             <h2 class="text-xl font-semibold mb-4">Estimated Issues (Ascending Story Points)</h2>
             <div class="issue-list sortable-list grow" data-column-id="estimated-issues">
-              <%= for issue <- @estimated_issues do %>
-                <div class="issue-card bg-base-300 rounded-lg p-4 mb-2 cursor-move" data-id={issue["id"]}>
-                  <div class="font-medium">
-                    <%= issue["title"] %>
-                  </div>
-                  <small class="text-sm"><%= issue["referencePath"] %></small>
-                </div>
+              <%= for item <- @estimated_issues do %>
+                <.render_item item={item} />
               <% end %>
             </div>
           </div>
         </div>
         <:controls>
-          <button class="btn" phx-click="back_to_lobby">
-            Back to Lobby
-          </button>
           <button class="btn btn-primary" phx-click="complete_estimation">
             Complete Estimation
           </button>
@@ -44,14 +49,5 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent do
       </.layout_box>
     </main>
     """
-  end
-
-  def handle_event("issue_moved", %{"issue_id" => issue_id, "from" => from, "to" => to, "new_index" => new_index} = params, socket) do
-    # Debug logging
-    IO.inspect(params, label: "MagicEstimationComponent received issue_moved event")
-
-    # Send the event up to the parent LiveView which handles the PlanningSession
-    send(self(), {:issue_moved, %{issue_id: issue_id, from: from, to: to, new_index: new_index}})
-    {:noreply, socket}
   end
 end

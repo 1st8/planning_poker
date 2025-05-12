@@ -81,9 +81,23 @@ defmodule PlanningPoker.PlanningSession do
   end
 
   def handle_event({:call, from}, :start_magic_estimation, :lobby, data) do
+    # Create story point markers for the options
+    markers = data.options
+              |> Enum.filter(fn val -> val != "?" end)  # Exclude the "?" option
+              |> Enum.map(fn str -> {num, _} = Integer.parse(str); num end) # Convert to integers
+              |> Enum.sort() # Sort numerically
+              |> Enum.map(fn value ->
+                  %{
+                    "id" => "marker/#{value}",
+                    "type" => "marker",
+                    "value" => Integer.to_string(value),
+                    "title" => "#{value} Story Points"
+                  }
+                end)
+
     data = %{data |
-      unestimated_issues: data.issues,
-      estimated_issues: []
+      unestimated_issues: data.issues ++ markers,
+      estimated_issues: []  # Add markers to the estimated column initially
     }
     broadcast_state_change(:magic_estimation, data)
     {:next_state, :magic_estimation, data, [{:reply, from, :ok}]}
