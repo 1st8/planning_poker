@@ -42,8 +42,8 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent do
           </div>
         </div>
         <:controls>
-          <button class="btn btn-primary" phx-click="complete_estimation">
-            Complete Estimation
+          <button class="btn btn-primary" phx-hook="LongPressButton" data-action="complete_estimation" id="complete-estimation-btn">
+            <span>Press and hold to complete</span>
           </button>
         </:controls>
       </.layout_box>
