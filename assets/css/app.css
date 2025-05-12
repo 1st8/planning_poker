@@ -6,6 +6,8 @@
 @source "../js";
 @source "../../lib/planning_poker_web";
 
+@import "./magic_estimation.css";
+
 /* A Tailwind plugin that makes "hero-#{ICON}" classes available.
    The heroicons installation itself is managed by your mix.exs */
 @plugin "../vendor/heroicons";
@@ -157,4 +159,35 @@
 
 body {
   @apply bg-base-300 min-h-screen;
+}
+
+/* Magic Estimation styles */
+.issue-column {
+  @apply bg-base-200 p-4 rounded-lg;
+  min-height: 300px;
+}
+
+.issue-column h2 {
+  @apply border-b border-base-300 pb-2;
+}
+
+.issue-card {
+  @apply shadow-sm transition-all duration-200;
+}
+
+.issue-card:hover {
+  @apply shadow-md;
+}
+
+/* Sortable styles */
+.sortable-ghost {
+  @apply opacity-50 bg-base-100 border-2 border-dashed border-primary;
+}
+
+.sortable-chosen {
+  @apply shadow-lg z-10;
+}
+
+.sortable-drag {
+  @apply shadow-xl;
 }

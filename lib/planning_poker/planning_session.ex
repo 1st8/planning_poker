@@ -6,6 +6,7 @@ defmodule PlanningPoker.PlanningSession do
   # lobby
   # voting
   # results
+  # magic_estimation
 
   def child_spec(opts) do
     %{
@@ -34,7 +35,9 @@ defmodule PlanningPoker.PlanningSession do
        token: token,
        mode: :magic_estimation,
        opened_issue_ids: MapSet.new(),
-       most_recent_issue_id: nil
+       most_recent_issue_id: nil,
+       unestimated_issues: [],
+       estimated_issues: []
      }}
   end
 
@@ -75,6 +78,59 @@ defmodule PlanningPoker.PlanningSession do
   def handle_event({:call, from}, :back_to_lobby, :voting, data) do
     broadcast_state_change(:lobby, data)
     {:next_state, :lobby, data, [{:reply, from, :ok}]}
+  end
+
+  def handle_event({:call, from}, :start_magic_estimation, :lobby, data) do
+    data = %{data |
+      unestimated_issues: data.issues,
+      estimated_issues: []
+    }
+    broadcast_state_change(:magic_estimation, data)
+    {:next_state, :magic_estimation, data, [{:reply, from, :ok}]}
+  end
+
+  def handle_event({:call, from}, :complete_estimation, :magic_estimation, data) do
+    broadcast_state_change(:lobby, data)
+    {:next_state, :lobby, data, [{:reply, from, :ok}]}
+  end
+
+  def handle_event({:call, from}, {:update_issue_position, issue_id, from_list, to_list, new_index}, :magic_estimation, data) do
+    {issue, source_list, target_list} = case {from_list, to_list} do
+      {"unestimated-issues", "estimated-issues"} ->
+        issue = Enum.find(data.unestimated_issues, fn issue -> issue["id"] == issue_id end)
+        {issue, :unestimated_issues, :estimated_issues}
+
+      {"estimated-issues", "unestimated-issues"} ->
+        issue = Enum.find(data.estimated_issues, fn issue -> issue["id"] == issue_id end)
+        {issue, :estimated_issues, :unestimated_issues}
+
+      {"estimated-issues", "estimated-issues"} ->
+        issue = Enum.find(data.estimated_issues, fn issue -> issue["id"] == issue_id end)
+        {issue, :estimated_issues, :estimated_issues}
+
+      {"unestimated-issues", "unestimated-issues"} ->
+        issue = Enum.find(data.unestimated_issues, fn issue -> issue["id"] == issue_id end)
+        {issue, :unestimated_issues, :unestimated_issues}
+    end
+
+    # Remove the issue from the source list
+    updated_source = data[source_list]
+                    |> Enum.filter(fn i -> i["id"] != issue_id end)
+
+    # Add the issue to the target list at the specified position
+    {before_items, after_items} = data[target_list]
+                                |> Enum.filter(fn i -> i["id"] != issue_id end)
+                                |> Enum.split(new_index)
+
+    updated_target = before_items ++ [issue] ++ after_items
+
+    # Update both lists in the state data
+    updated_data = data
+                  |> Map.put(source_list, updated_source)
+                  |> Map.put(target_list, updated_target)
+
+    broadcast_state_change(:magic_estimation, updated_data)
+    {:keep_state, updated_data, [{:reply, from, :ok}]}
   end
 
   def handle_event({:call, from}, :commit_results, :results, data) do

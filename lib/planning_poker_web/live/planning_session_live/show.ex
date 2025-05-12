@@ -73,6 +73,21 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     {:noreply, socket}
   end
 
+  def handle_event("start_magic_estimation", _value, socket) do
+    :ok = Planning.start_magic_estimation(socket.assigns.planning_session.id)
+    {:noreply, socket}
+  end
+
+  def handle_event("issue_moved", %{"issue_id" => issue_id, "from" => from, "to" => to, "new_index" => new_index}, socket) do
+    :ok = Planning.update_issue_position(socket.assigns.planning_session.id, issue_id, from, to, new_index)
+    {:noreply, socket}
+  end
+
+  def handle_event("complete_estimation", _value, socket) do
+    :ok = Planning.complete_estimation(socket.assigns.planning_session.id)
+    {:noreply, socket}
+  end
+
   def handle_event("back_to_lobby", _value, socket) do
     :ok = Planning.back_to_lobby(socket.assigns.planning_session.id)
     {:noreply, socket}
@@ -102,6 +117,14 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     }
   end
 
+  def handle_info({:issue_moved, %{issue_id: issue_id, from: from, to: to, new_index: new_index} = params}, socket) do
+    # Debug logging
+    IO.inspect(params, label: "Show LiveView received issue_moved message")
+
+    :ok = Planning.update_issue_position(socket.assigns.planning_session.id, issue_id, from, to, new_index)
+    {:noreply, socket}
+  end
+
   # PlanningSession DOWN handler
   def handle_info(
         {:DOWN, monitor_ref, :process, _, reason},
@@ -126,6 +149,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
         :lobby -> "Lobby"
         :voting -> "Voting"
         :results -> "Results"
+        :magic_estimation -> "Magic Estimation"
         _ -> "Loading..."
       end
     )

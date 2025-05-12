@@ -1,0 +1,33 @@
+/* Magic Estimation styles */
+
+/* Issue columns */
+.issue-column {
+  @apply bg-base-200 p-4 rounded-lg;
+  min-height: 300px;
+}
+
+.issue-column h2 {
+  @apply border-b border-base-300 pb-2;
+}
+
+/* Issue cards */
+.issue-card {
+  @apply shadow-sm transition-all duration-200;
+}
+
+.issue-card:hover {
+  @apply shadow-md;
+}
+
+/* Sortable styles */
+.sortable-ghost {
+  @apply opacity-50 bg-base-100 border-2 border-dashed border-primary;
+}
+
+.sortable-chosen {
+  @apply shadow-lg z-10;
+}
+
+.sortable-drag {
+  @apply shadow-xl;
+}
