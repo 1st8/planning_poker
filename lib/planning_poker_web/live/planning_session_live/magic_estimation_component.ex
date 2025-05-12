@@ -5,8 +5,8 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent do
   defp render_item(assigns) do
     ~H"""
     <%= if @item["type"] == "marker" do %>
-      <div class="marker-card bg-primary text-primary-content rounded-lg p-4 mb-2 cursor-move" data-id={@item["id"]}>
-        <div class="font-medium text-center">⬇️ <%= @item["value"] %> Story Points ⬇️</div>
+      <div class="marker-card bg-primary text-primary-content rounded-lg p-2 mb-2 cursor-move" data-id={@item["id"]}>
+        <div class="flex gap-4 items-center justify-center">⬇️<span class="font-bold text-lg"><%= @item["value"] %></span>⬇️</div>
       </div>
     <% else %>
       <div class="issue-card bg-base-100 rounded-lg p-4 mb-2 cursor-move" data-id={@item["id"]}>
@@ -42,7 +42,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent do
           </div>
         </div>
         <:controls>
-          <button class="btn btn-primary" phx-hook="LongPressButton" data-action="complete_estimation" id="complete-estimation-btn">
+          <button class="btn btn-primary btn-sm" phx-hook="LongPressButton" data-action="complete_estimation" id="complete-estimation-btn">
             <span>Press and hold to complete</span>
           </button>
         </:controls>

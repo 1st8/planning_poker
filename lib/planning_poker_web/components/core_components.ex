@@ -464,9 +464,9 @@ defmodule PlanningPokerWeb.CoreComponents do
 
   def layout_box(assigns) do
     ~H"""
-    <div class="bg-base-100 border-8 border-black">
-      <div :if={@title} class="flex items-center bg-black px-4 py-2 border-b-8 border-black">
-        <h2 class="grow font-bold text-white uppercase">{@title}</h2>
+    <div class="bg-base-100 border-8 border-neutral">
+      <div :if={@title} class="flex items-center bg-neutral px-4 py-2 border-b-8 border-neutral">
+        <h2 class="grow font-bold text-neutral-content uppercase">{@title}</h2>
         {render_slot(@controls)}
       </div>
       <div class="flex flex-col gap-8 p-8">
