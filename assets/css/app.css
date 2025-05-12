@@ -16,7 +16,7 @@
    curl -sLO https://github.com/saadeghi/daisyui/releases/latest/download/daisyui.js
    Make sure to look at the daisyUI changelog: https://daisyui.com/docs/changelog/ */
 @plugin "../vendor/daisyui" {
-  themes: false;
+  themes: light --default, dark --prefersdark;
 }
 
 /* daisyUI theme plugin. You can update this file by fetching the latest version with:
@@ -24,75 +24,8 @@
   We ship with two themes, a light one inspired on Phoenix colors and a dark one inspired
   on Elixir colors. Build your own at: https://daisyui.com/theme-generator/ */
 
-@plugin "../vendor/daisyui-theme" {
-  name: "dark"; /* synthwave */
-  default: false;
-  prefersdark: true;
-  color-scheme: "dark";
-  --color-base-100: oklch(15% 0.09 281.288);
-  --color-base-200: oklch(20% 0.09 281.288);
-  --color-base-300: oklch(25% 0.09 281.288);
-  --color-base-content: oklch(78% 0.115 274.713);
-  --color-primary: oklch(71% 0.202 349.761);
-  --color-primary-content: oklch(28% 0.109 3.907);
-  --color-secondary: oklch(82% 0.111 230.318);
-  --color-secondary-content: oklch(29% 0.066 243.157);
-  --color-accent: oklch(75% 0.183 55.934);
-  --color-accent-content: oklch(26% 0.079 36.259);
-  --color-neutral: oklch(45% 0.24 277.023);
-  --color-neutral-content: oklch(87% 0.065 274.039);
-  --color-info: oklch(74% 0.16 232.661);
-  --color-info-content: oklch(29% 0.066 243.157);
-  --color-success: oklch(77% 0.152 181.912);
-  --color-success-content: oklch(27% 0.046 192.524);
-  --color-warning: oklch(90% 0.182 98.111);
-  --color-warning-content: oklch(42% 0.095 57.708);
-  --color-error: oklch(73.7% 0.121 32.639);
-  --color-error-content: oklch(23.501% 0.096 290.329);
-  --radius-selector: 1rem;
-  --radius-field: 0.5rem;
-  --radius-box: 1rem;
-  --size-selector: 0.25rem;
-  --size-field: 0.25rem;
-  --border: 1px;
-  --depth: 0;
-  --noise: 0;
-}
-
-@plugin "../vendor/daisyui-theme" {
-  name: "light"; /* cupcake */
-  default: true;
-  prefersdark: false;
-  color-scheme: "light";
-  --color-base-100: oklch(97.788% 0.004 56.375);
-  --color-base-200: oklch(93.982% 0.007 61.449);
-  --color-base-300: oklch(91.586% 0.006 53.44);
-  --color-base-content: oklch(23.574% 0.066 313.189);
-  --color-primary: oklch(85% 0.138 181.071);
-  --color-primary-content: oklch(43% 0.078 188.216);
-  --color-secondary: oklch(89% 0.061 343.231);
-  --color-secondary-content: oklch(45% 0.187 3.815);
-  --color-accent: oklch(90% 0.076 70.697);
-  --color-accent-content: oklch(47% 0.157 37.304);
-  --color-neutral: oklch(27% 0.006 286.033);
-  --color-neutral-content: oklch(92% 0.004 286.32);
-  --color-info: oklch(68% 0.169 237.323);
-  --color-info-content: oklch(29% 0.066 243.157);
-  --color-success: oklch(69% 0.17 162.48);
-  --color-success-content: oklch(26% 0.051 172.552);
-  --color-warning: oklch(79% 0.184 86.047);
-  --color-warning-content: oklch(28% 0.066 53.813);
-  --color-error: oklch(64% 0.246 16.439);
-  --color-error-content: oklch(27% 0.105 12.094);
-  --radius-selector: 1rem;
-  --radius-field: 2rem;
-  --radius-box: 1rem;
-  --size-selector: 0.25rem;
-  --size-field: 0.25rem;
-  --border: 2px;
-  --depth: 1;
-  --noise: 0;
-}
+/* @plugin "../vendor/daisyui-theme" { */
+/* } */
 
 /* Add variants based on LiveView classes */
 @custom-variant phx-click-loading ([".phx-click-loading&", ".phx-click-loading &"]);
@@ -112,14 +45,14 @@
   }
 
   .btn-shadow {
-    box-shadow: 5px 5px black;
-    @apply border-4 border-black;
+    box-shadow: 5px 5px var(--color-neutral);
+    @apply border-4 border-neutral;
     @apply -translate-x-[5px] -translate-y-[5px];
   }
 
   .btn-shadow:hover {
-    box-shadow: 4px 4px black;
-    @apply border-4 border-black;
+    box-shadow: 4px 4px var(--color-neutral);
+    @apply border-4 border-neutral;
     @apply -translate-x-[4px] -translate-y-[4px];
     /* @apply brightness-125;
       --tw-saturate: saturate(1.25); */
@@ -128,8 +61,8 @@
   .btn-shadow:active,
   .btn-shadow:active:hover,
   .btn-shadow.btn-active {
-    box-shadow: 0 0 black;
-    @apply border-t-[6px] border-l-[6px] border-r-2 border-b-2 border-black;
+    box-shadow: 0 0 var(--color-neutral);
+    @apply border-t-[6px] border-l-[6px] border-r-2 border-b-2 border-neutral;
     @apply translate-x-0 translate-y-0;
     /* @apply brightness-125 saturate-150; */
   }
@@ -171,11 +104,13 @@ body {
   @apply border-b border-base-300 pb-2;
 }
 
-.issue-card, .marker-card {
+.issue-card,
+.marker-card {
   @apply shadow-sm transition-all duration-200;
 }
 
-.issue-card:hover, .marker-card {
+.issue-card:hover,
+.marker-card {
   @apply shadow-md;
 }
 

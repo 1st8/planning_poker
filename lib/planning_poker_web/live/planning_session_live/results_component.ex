@@ -15,9 +15,9 @@ defmodule PlanningPokerWeb.PlanningSessionLive.ResultsComponent do
         <div class="flex flex-wrap gap-8 items-center">
           <%= for vote <- @votes do %>
             <% {bg, text} = @classes[vote[:vote]] %>
-            <div class={"#{bg} #{text} flex flex-col items-stretch text-center border-4 border-black w-32 rounded-2xl"}>
+            <div class={"#{bg} #{text} flex flex-col items-stretch text-center border-4 border-neutral w-32 rounded-2xl"}>
               <strong class="text-8xl leading-normal"><%= vote[:vote] %></strong>
-              <span class="bg-black text-white text-lg font-semibold truncate py-2">
+              <span class="bg-neutral text-neutral-content text-lg font-semibold truncate py-2">
                 <%= render_name(vote, @votes) %>
               </span>
             </div>

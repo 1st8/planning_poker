@@ -35,21 +35,23 @@ defmodule PlanningPokerWeb.PlanningSessionLive.LobbyComponent do
           <% end %>
         </ol>
         <:controls>
-          <%= if @data.mode == :magic_estimation do %>
-            <button class="btn btn-accent btn-sm" phx-click="start_magic_estimation">
-              Start Magic Estimation
-            </button>
-          <% end %>
+          <div class="space-x-1">
+            <%= if @data.mode == :magic_estimation && !@data.fetching do %>
+              <button class="btn btn-accent btn-sm" phx-click="start_magic_estimation">
+                <.icon name="hero-sparkles-mini" /> Start Magic Estimation
+              </button>
+            <% end %>
 
-          <%= if @data.fetching do %>
-            <button class="btn btn-primary btn-xs loading" disabled phx-click="refresh_issues">
-              Loading...
-            </button>
-          <% else %>
-            <button class="btn btn-primary btn-sm" phx-click="refresh_issues">
-              <.icon name="hero-arrow-path-mini" /> Refresh
-            </button>
-          <% end %>
+            <%= if @data.fetching do %>
+              <button class="btn btn-primary btn-sm loading" disabled phx-click="refresh_issues">
+                Loading...
+              </button>
+            <% else %>
+              <button class="btn btn-primary btn-sm" phx-click="refresh_issues">
+                <.icon name="hero-arrow-path-mini" /> Refresh
+              </button>
+            <% end %>
+          </div>
         </:controls>
       </.layout_box>
     </main>
