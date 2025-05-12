@@ -14,6 +14,13 @@
           issue={issue}
           mode={@planning_session.mode}
         />
+      <% %{state: :magic_estimation} = data -> %>
+        <.live_component
+          module={PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent}
+          id="magic_estimation"
+          unestimated_issues={data.unestimated_issues}
+          estimated_issues={data.estimated_issues}
+        />
       <% %{state: :results, current_issue: issue} -> %>
         <.live_component
           module={PlanningPokerWeb.PlanningSessionLive.ResultsComponent}

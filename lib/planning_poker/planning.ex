@@ -83,6 +83,18 @@ defmodule PlanningPoker.Planning do
     session_id |> to_pid |> :gen_statem.call(:back_to_lobby)
   end
 
+  def start_magic_estimation(session_id) do
+    session_id |> to_pid |> :gen_statem.call(:start_magic_estimation)
+  end
+
+  def update_issue_position(session_id, issue_id, from_list, to_list, new_index) do
+    session_id |> to_pid |> :gen_statem.call({:update_issue_position, issue_id, from_list, to_list, new_index})
+  end
+
+  def complete_estimation(session_id) do
+    session_id |> to_pid |> :gen_statem.call(:complete_estimation)
+  end
+
   def to_pid(id) do
     [{pid, _value}] = Registry.lookup(PlanningPoker.PlanningSession.Registry, id)
     pid
