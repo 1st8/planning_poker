@@ -11,7 +11,13 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent do
     <% else %>
       <div class="issue-card bg-base-100 rounded-lg p-4 mb-2 cursor-move" data-id={@item["id"]}>
         <div class="font-medium">
-          <%= @item["title"] %>
+          <a
+            href={@item["webUrl"]}
+            target="_blank"
+            class="underline decoration-primary hover:decoration-primary/50 decoration-2"
+          >
+            <%= @item["title"] %>
+          </a>
         </div>
         <small class="text-sm"><%= @item["referencePath"] %></small>
       </div>
