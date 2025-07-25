@@ -16,8 +16,8 @@ app:
 replicaCount: 1
 
 image:
-  repository: 1st8/planning_poker
-  pullPolicy: IfNotPresent
+  repository: ghcr.io/1st8/planning_poker
+  pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
