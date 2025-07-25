@@ -102,10 +102,10 @@ if config_env() == :prod do
 end
 
 redirect_uri =
-  if config_env() == :dev && System.get_env("HOST") == nil do
+  if config_env() == :dev && System.get_env("PHX_HOST") == nil do
     "http://localhost:4000"
   else
-    "https://" <> System.get_env("HOST", "example.com")
+    "https://" <> System.get_env("PHX_HOST", "example.com")
   end <> "/auth/gitlab/callback"
 
 config :ueberauth, Ueberauth.Strategy.Gitlab.OAuth,
