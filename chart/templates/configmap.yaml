@@ -4,7 +4,7 @@ metadata:
   creationTimestamp: null
   name: app-config
 data:
-  HOST: {{ .Values.app.host }}
+  PHX_HOST: {{ .Values.app.host }}
   GITLAB_CLIENT_ID: {{ .Values.app.gitlabClientId }}
   GITLAB_SITE: {{ .Values.app.gitlabSite }}
   {{ if .Values.app.listId }}
