@@ -1,7 +1,7 @@
 defmodule PlanningPoker.PlanningSession do
   @behaviour :gen_statem
 
-  alias PlanningPoker.{GitlabApi, Planning}
+  alias PlanningPoker.{GitlabApi, Planning, IssueEditor}
 
   # lobby
   # voting
@@ -37,7 +37,11 @@ defmodule PlanningPoker.PlanningSession do
        opened_issue_ids: MapSet.new(),
        most_recent_issue_id: nil,
        unestimated_issues: [],
-       estimated_issues: []
+       estimated_issues: [],
+       issue_edit: %{
+         sections: [],
+         locks: %{}
+       }
      }}
   end
 
@@ -172,6 +176,117 @@ defmodule PlanningPoker.PlanningSession do
     {:keep_state, data, [{:reply, from, :ok}]}
   end
 
+  # Section editing events
+  def handle_event({:call, from}, {:lock_section, section_id, user_id}, state, data)
+      when state in [:voting, :results] do
+    case get_in(data, [:issue_edit, :locks, section_id]) do
+      nil ->
+        # Section is not locked, acquire lock
+        new_locks = Map.put(data.issue_edit.locks, section_id, %{
+          user_id: user_id,
+          locked_at: DateTime.utc_now()
+        })
+        new_data = %{data | issue_edit: %{data.issue_edit | locks: new_locks}}
+        broadcast_state_change(state, new_data)
+        {:keep_state, new_data, [{:reply, from, {:ok, :locked}}]}
+
+      %{user_id: ^user_id} ->
+        # Already locked by this user
+        {:keep_state, data, [{:reply, from, {:ok, :already_locked}}]}
+
+      _ ->
+        # Locked by someone else
+        {:keep_state, data, [{:reply, from, {:error, :locked_by_other}}]}
+    end
+  end
+
+  def handle_event({:call, from}, {:unlock_section, section_id, user_id}, state, data)
+      when state in [:voting, :results] do
+    case get_in(data, [:issue_edit, :locks, section_id]) do
+      %{user_id: ^user_id} ->
+        # User owns the lock, release it
+        new_locks = Map.delete(data.issue_edit.locks, section_id)
+        new_data = %{data | issue_edit: %{data.issue_edit | locks: new_locks}}
+        broadcast_state_change(state, new_data)
+        {:keep_state, new_data, [{:reply, from, :ok}]}
+
+      nil ->
+        # Section is not locked
+        {:keep_state, data, [{:reply, from, {:ok, :not_locked}}]}
+
+      _ ->
+        # Locked by someone else, cannot unlock
+        {:keep_state, data, [{:reply, from, {:error, :not_owner}}]}
+    end
+  end
+
+  def handle_event({:call, from}, {:update_section, section_id, new_content, user_id}, state, data)
+      when state in [:voting, :results] do
+    case get_in(data, [:issue_edit, :locks, section_id]) do
+      %{user_id: ^user_id} ->
+        # User owns the lock, can update
+        new_sections = IssueEditor.update_section(data.issue_edit.sections, section_id, new_content)
+        new_data = %{data | issue_edit: %{data.issue_edit | sections: new_sections}}
+        broadcast_state_change(state, new_data)
+        {:keep_state, new_data, [{:reply, from, :ok}]}
+
+      nil ->
+        # Section is not locked, reject update
+        {:keep_state, data, [{:reply, from, {:error, :not_locked}}]}
+
+      _ ->
+        # Locked by someone else
+        {:keep_state, data, [{:reply, from, {:error, :locked_by_other}}]}
+    end
+  end
+
+  def handle_event({:call, from}, {:insert_section_after, section_id, user_id}, state, data)
+      when state in [:voting, :results] do
+    new_sections = IssueEditor.insert_section_after(data.issue_edit.sections, section_id)
+    new_data = %{data | issue_edit: %{data.issue_edit | sections: new_sections}}
+
+    # Get the ID of the newly inserted section
+    inserted_section =
+      new_sections
+      |> Enum.reject(fn s -> Enum.any?(data.issue_edit.sections, &(&1.id == s.id)) end)
+      |> List.first()
+
+    # Automatically lock the new section for the user who created it
+    new_locks = if inserted_section do
+      Map.put(new_data.issue_edit.locks, inserted_section.id, %{
+        user_id: user_id,
+        locked_at: DateTime.utc_now()
+      })
+    else
+      new_data.issue_edit.locks
+    end
+
+    new_data = %{new_data | issue_edit: %{new_data.issue_edit | locks: new_locks}}
+    broadcast_state_change(state, new_data)
+    {:keep_state, new_data, [{:reply, from, {:ok, inserted_section.id}}]}
+  end
+
+  def handle_event({:call, from}, {:delete_section, section_id, user_id}, state, data)
+      when state in [:voting, :results] do
+    case get_in(data, [:issue_edit, :locks, section_id]) do
+      %{user_id: ^user_id} ->
+        # User owns the lock, can delete
+        new_sections = IssueEditor.delete_section(data.issue_edit.sections, section_id)
+        new_locks = Map.delete(data.issue_edit.locks, section_id)
+        new_data = %{data | issue_edit: %{sections: new_sections, locks: new_locks}}
+        broadcast_state_change(state, new_data)
+        {:keep_state, new_data, [{:reply, from, :ok}]}
+
+      nil ->
+        # Section is not locked, reject delete
+        {:keep_state, data, [{:reply, from, {:error, :not_locked}}]}
+
+      _ ->
+        # Locked by someone else
+        {:keep_state, data, [{:reply, from, {:error, :locked_by_other}}]}
+    end
+  end
+
   def handle_event({:call, from}, _event, _content, data) do
     {:keep_state, data, [{:reply, from, {:error, "invalid transition"}}]}
   end
@@ -200,8 +315,16 @@ defmodule PlanningPoker.PlanningSession do
 
     new_data =
       case data.current_issue do
-        nil -> data
-        _ -> data |> Map.put(:current_issue, result)
+        nil ->
+          data
+
+        _ ->
+          # Parse the markdown description into editable sections
+          sections = IssueEditor.parse_markdown(result["description"])
+
+          data
+          |> Map.put(:current_issue, result)
+          |> Map.put(:issue_edit, %{sections: sections, locks: %{}})
       end
       |> Map.delete(:fetch_issue_ref)
 

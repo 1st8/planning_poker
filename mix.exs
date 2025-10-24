@@ -59,7 +59,8 @@ defmodule PlanningPoker.MixProject do
       {:tesla, "~> 1.14"},
       {:elixir_uuid, "~> 1.2"},
       {:ueberauth, "~> 0.7.0"},
-      {:ueberauth_gitlab_strategy, "~> 0.4.0"}
+      {:ueberauth_gitlab_strategy, "~> 0.4.0"},
+      {:earmark, "~> 1.4"}
     ]
   end
 
