@@ -1,6 +1,8 @@
 defmodule PlanningPokerWeb.PlanningSessionLive.VotingComponent do
   use PlanningPokerWeb, :live_component
 
+  alias PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
+
   def render(assigns) do
     ~H"""
     <main>
@@ -10,9 +12,16 @@ defmodule PlanningPokerWeb.PlanningSessionLive.VotingComponent do
             <%= @issue["title"] %>
           </a>
         </h1>
-        <div id="issue-description" class="prose prose-lg" phx-hook="LazyImages" data-base-url={@issue[:base_url]}>
-          <%= raw(@issue["descriptionHtml"]) %>
-        </div>
+
+        <!-- Collaborative Issue Editor -->
+        <.live_component
+          module={CollaborativeIssueEditorComponent}
+          id="collaborative-editor"
+          issue={@issue}
+          current_user_id={@current_user_id}
+          session_id={@session_id}
+        />
+
         <:controls>
           <button class="btn" phx-click={if @mode == :magic_estimation, do: "back_to_lobby", else: "finish_voting"}>
             <%= if @mode == :magic_estimation, do: "Back", else: "Finish Voting" %>

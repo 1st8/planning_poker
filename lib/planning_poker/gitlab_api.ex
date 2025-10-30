@@ -33,6 +33,7 @@ defmodule PlanningPoker.GitlabApi do
         id
         iid
         title
+        description
         descriptionHtml
         referencePath: reference(full: true)
         webUrl

@@ -1,7 +1,7 @@
 defmodule PlanningPoker.PlanningSession do
   @behaviour :gen_statem
 
-  alias PlanningPoker.{GitlabApi, Planning}
+  alias PlanningPoker.{GitlabApi, Planning, IssueSection}
 
   # lobby
   # voting
@@ -172,6 +172,78 @@ defmodule PlanningPoker.PlanningSession do
     {:keep_state, data, [{:reply, from, :ok}]}
   end
 
+  # Section editing events (available in voting state)
+  def handle_event({:call, from}, {:lock_section, section_id, user_id}, :voting, data) do
+    case data.current_issue do
+      nil ->
+        {:keep_state, data, [{:reply, from, {:error, :no_current_issue}}]}
+
+      issue ->
+        case IssueSection.lock_section(issue["sections"], section_id, user_id) do
+          {:ok, updated_sections} ->
+            updated_issue = Map.put(issue, "sections", updated_sections)
+            new_data = Map.put(data, :current_issue, updated_issue)
+            broadcast_state_change(:voting, new_data)
+            {:keep_state, new_data, [{:reply, from, :ok}]}
+
+          {:error, reason} ->
+            {:keep_state, data, [{:reply, from, {:error, reason}}]}
+        end
+    end
+  end
+
+  def handle_event({:call, from}, {:unlock_section, section_id, user_id}, :voting, data) do
+    case data.current_issue do
+      nil ->
+        {:keep_state, data, [{:reply, from, {:error, :no_current_issue}}]}
+
+      issue ->
+        case IssueSection.unlock_section(issue["sections"], section_id, user_id) do
+          {:ok, updated_sections} ->
+            updated_issue = Map.put(issue, "sections", updated_sections)
+            new_data = Map.put(data, :current_issue, updated_issue)
+            broadcast_state_change(:voting, new_data)
+            {:keep_state, new_data, [{:reply, from, :ok}]}
+
+          {:error, reason} ->
+            {:keep_state, data, [{:reply, from, {:error, reason}}]}
+        end
+    end
+  end
+
+  def handle_event({:call, from}, {:update_section_content, section_id, content, user_id}, :voting, data) do
+    case data.current_issue do
+      nil ->
+        {:keep_state, data, [{:reply, from, {:error, :no_current_issue}}]}
+
+      issue ->
+        case IssueSection.update_section_content(issue["sections"], section_id, content, user_id) do
+          {:ok, updated_sections} ->
+            updated_issue = Map.put(issue, "sections", updated_sections)
+            new_data = Map.put(data, :current_issue, updated_issue)
+            broadcast_state_change(:voting, new_data)
+            {:keep_state, new_data, [{:reply, from, :ok}]}
+
+          {:error, reason} ->
+            {:keep_state, data, [{:reply, from, {:error, reason}}]}
+        end
+    end
+  end
+
+  def handle_event({:call, from}, {:add_section, position, user_id}, :voting, data) do
+    case data.current_issue do
+      nil ->
+        {:keep_state, data, [{:reply, from, {:error, :no_current_issue}}]}
+
+      issue ->
+        updated_sections = IssueSection.add_section(issue["sections"], position, user_id)
+        updated_issue = Map.put(issue, "sections", updated_sections)
+        new_data = Map.put(data, :current_issue, updated_issue)
+        broadcast_state_change(:voting, new_data)
+        {:keep_state, new_data, [{:reply, from, :ok}]}
+    end
+  end
+
   def handle_event({:call, from}, _event, _content, data) do
     {:keep_state, data, [{:reply, from, {:error, "invalid transition"}}]}
   end
@@ -201,7 +273,11 @@ defmodule PlanningPoker.PlanningSession do
     new_data =
       case data.current_issue do
         nil -> data
-        _ -> data |> Map.put(:current_issue, result)
+        _ ->
+          # Parse description into editable sections
+          sections = IssueSection.parse_into_sections(result["description"])
+          updated_issue = Map.put(result, "sections", sections)
+          data |> Map.put(:current_issue, updated_issue)
       end
       |> Map.delete(:fetch_issue_ref)
 
