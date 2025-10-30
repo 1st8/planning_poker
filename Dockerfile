@@ -11,7 +11,7 @@
 #   - https://pkgs.org/ - resource for finding needed packages
 #   - Ex: docker.io/hexpm/elixir:1.18.3-erlang-27.3.3-debian-bookworm-20250428-slim
 #
-ARG ELIXIR_VERSION=1.18.3
+ARG ELIXIR_VERSION=1.18.4
 ARG OTP_VERSION=27.3.3
 ARG DEBIAN_VERSION=bookworm-20250428-slim
 
