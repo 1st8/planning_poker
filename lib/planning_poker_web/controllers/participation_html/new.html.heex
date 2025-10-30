@@ -12,7 +12,28 @@
         </.form>
       <% else %>
         <h1 class="text-5xl font-semibold">PlanningPoker</h1>
-        <a href="/auth/gitlab" class="btn btn-primary btn-lg btn-shadow">Mit Gitlab anmelden</a>
+
+        <%= if @provider == PlanningPoker.IssueProviders.Mock do %>
+          <div class="flex flex-col gap-3 items-center">
+            <p class="text-sm text-base-content/70">Development Mode - Choose a mock user:</p>
+            <div class="flex gap-3">
+              <a href="/auth/mock/alice" class="btn btn-primary btn-shadow">
+                <span class="text-lg">👩</span>
+                Alice
+              </a>
+              <a href="/auth/mock/bob" class="btn btn-secondary btn-shadow">
+                <span class="text-lg">👨</span>
+                Bob
+              </a>
+              <a href="/auth/mock/carol" class="btn btn-accent btn-shadow">
+                <span class="text-lg">👩‍💼</span>
+                Carol
+              </a>
+            </div>
+          </div>
+        <% else %>
+          <a href="/auth/gitlab" class="btn btn-primary btn-lg btn-shadow">Mit Gitlab anmelden</a>
+        <% end %>
       <% end %>
     </main>
   </.layout_box>

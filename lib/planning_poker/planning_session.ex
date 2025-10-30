@@ -1,7 +1,7 @@
 defmodule PlanningPoker.PlanningSession do
   @behaviour :gen_statem
 
-  alias PlanningPoker.{GitlabApi, Planning, IssueSection}
+  alias PlanningPoker.{IssueProvider, Planning, IssueSection}
 
   # lobby
   # voting
@@ -271,12 +271,13 @@ defmodule PlanningPoker.PlanningSession do
     Process.demonitor(fetch_issue_ref, [:flush])
 
     new_data =
-      case data.current_issue do
-        nil -> data
-        _ ->
+      case {data.current_issue, result} do
+        {nil, _} -> data
+        {_, nil} -> data
+        {_, issue} ->
           # Parse description into editable sections
-          sections = IssueSection.parse_into_sections(result["description"])
-          updated_issue = Map.put(result, "sections", sections)
+          sections = IssueSection.parse_into_sections(issue["description"])
+          updated_issue = Map.put(issue, "sections", sections)
           data |> Map.put(:current_issue, updated_issue)
       end
       |> Map.delete(:fetch_issue_ref)
@@ -311,7 +312,12 @@ defmodule PlanningPoker.PlanningSession do
   defp fetch_issues(data) do
     task =
       Task.Supervisor.async_nolink(PlanningPoker.TaskSupervisor, fn ->
-        GitlabApi.fetch_issues(GitlabApi.default_client(token: data.token))
+        client = IssueProvider.client(token: data.token)
+
+        case IssueProvider.fetch_issues(client) do
+          {:ok, issues} -> issues
+          {:error, _reason} -> []
+        end
       end)
 
     Map.put(data, :fetch_issues_ref, task.ref)
@@ -320,7 +326,12 @@ defmodule PlanningPoker.PlanningSession do
   defp fetch_current_issue(data) do
     task =
       Task.Supervisor.async_nolink(PlanningPoker.TaskSupervisor, fn ->
-        GitlabApi.fetch_issue(GitlabApi.default_client(token: data.token), data.current_issue["id"])
+        client = IssueProvider.client(token: data.token)
+
+        case IssueProvider.fetch_issue(client, data.current_issue["id"]) do
+          {:ok, issue} -> issue
+          {:error, _reason} -> nil
+        end
       end)
 
     Map.put(data, :fetch_issue_ref, task.ref)
