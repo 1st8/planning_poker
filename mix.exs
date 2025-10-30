@@ -62,7 +62,8 @@ defmodule PlanningPoker.MixProject do
       {:elixir_uuid, "~> 1.2"},
       {:ueberauth, "~> 0.7.0"},
       {:ueberauth_gitlab_strategy, "~> 0.4.0"},
-      {:igniter, "~> 0.6.30"}
+      {:igniter, "~> 0.6.30"},
+      {:earmark, "~> 1.4"}
     ]
   end
 

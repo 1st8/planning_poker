@@ -1,0 +1,182 @@
+defmodule PlanningPoker.IssueSection do
+  @moduledoc """
+  Handles parsing and managing issue description sections for collaborative editing.
+
+  Sections are created by splitting markdown text on double newlines (paragraph boundaries).
+  Each section gets a unique ID and can be locked by a single user during editing.
+  """
+
+  @doc """
+  Parses markdown text into sections.
+
+  Splits on double newlines and creates a section for each paragraph.
+  Empty sections are filtered out.
+
+  ## Examples
+
+      iex> parse_into_sections("First paragraph\\n\\nSecond paragraph")
+      [
+        %{"id" => "section-0", "content" => "First paragraph", "locked_by" => nil, "position" => 0},
+        %{"id" => "section-1", "content" => "Second paragraph", "locked_by" => nil, "position" => 1}
+      ]
+  """
+  def parse_into_sections(nil), do: []
+  def parse_into_sections(""), do: []
+
+  def parse_into_sections(markdown) when is_binary(markdown) do
+    markdown
+    |> String.split("\n\n")
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.with_index()
+    |> Enum.map(fn {content, index} ->
+      %{
+        "id" => "section-#{index}",
+        "content" => content,
+        "locked_by" => nil,
+        "position" => index
+      }
+    end)
+  end
+
+  @doc """
+  Locks a section for a specific user.
+
+  Returns `{:ok, updated_sections}` if the section was successfully locked,
+  or `{:error, reason}` if the section is already locked by another user.
+  """
+  def lock_section(sections, section_id, user_id) do
+    case find_section(sections, section_id) do
+      nil ->
+        {:error, :section_not_found}
+
+      section ->
+        case section["locked_by"] do
+          nil ->
+            updated_sections = update_section(sections, section_id, fn s ->
+              Map.put(s, "locked_by", user_id)
+            end)
+            {:ok, updated_sections}
+
+          ^user_id ->
+            {:ok, sections}  # Already locked by this user
+
+          _other_user ->
+            {:error, :section_locked}
+        end
+    end
+  end
+
+  @doc """
+  Unlocks a section.
+
+  Only the user who locked the section can unlock it.
+  """
+  def unlock_section(sections, section_id, user_id) do
+    case find_section(sections, section_id) do
+      nil ->
+        {:error, :section_not_found}
+
+      section ->
+        case section["locked_by"] do
+          ^user_id ->
+            updated_sections = update_section(sections, section_id, fn s ->
+              Map.put(s, "locked_by", nil)
+            end)
+            {:ok, updated_sections}
+
+          nil ->
+            {:ok, sections}  # Already unlocked
+
+          _other_user ->
+            {:error, :not_lock_owner}
+        end
+    end
+  end
+
+  @doc """
+  Updates the content of a section.
+
+  Only the user who has the section locked can update it.
+  """
+  def update_section_content(sections, section_id, content, user_id) do
+    case find_section(sections, section_id) do
+      nil ->
+        {:error, :section_not_found}
+
+      section ->
+        case section["locked_by"] do
+          ^user_id ->
+            updated_sections = update_section(sections, section_id, fn s ->
+              Map.put(s, "content", content)
+            end)
+            {:ok, updated_sections}
+
+          nil ->
+            {:error, :section_not_locked}
+
+          _other_user ->
+            {:error, :not_lock_owner}
+        end
+    end
+  end
+
+  @doc """
+  Adds a new section at the specified position.
+
+  All sections at or after the specified position will have their positions incremented.
+  """
+  def add_section(sections, position, user_id) do
+    # Increment positions of sections at or after the new position
+    updated_sections = Enum.map(sections, fn section ->
+      if section["position"] >= position do
+        Map.put(section, "position", section["position"] + 1)
+      else
+        section
+      end
+    end)
+
+    # Create new section
+    new_section = %{
+      "id" => "section-#{generate_section_id()}",
+      "content" => "",
+      "locked_by" => user_id,  # Lock it for the creator immediately
+      "position" => position
+    }
+
+    # Add and re-sort
+    [new_section | updated_sections]
+    |> Enum.sort_by(& &1["position"])
+  end
+
+  @doc """
+  Reassembles sections back into markdown text.
+  """
+  def sections_to_markdown(sections) do
+    sections
+    |> Enum.sort_by(& &1["position"])
+    |> Enum.map(& &1["content"])
+    |> Enum.join("\n\n")
+  end
+
+  # Private helpers
+
+  defp find_section(sections, section_id) do
+    Enum.find(sections, fn s -> s["id"] == section_id end)
+  end
+
+  defp update_section(sections, section_id, update_fn) do
+    Enum.map(sections, fn section ->
+      if section["id"] == section_id do
+        update_fn.(section)
+      else
+        section
+      end
+    end)
+  end
+
+  defp generate_section_id do
+    :crypto.strong_rand_bytes(8)
+    |> Base.url_encode64(padding: false)
+  end
+end

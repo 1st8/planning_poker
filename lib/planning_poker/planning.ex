@@ -95,6 +95,22 @@ defmodule PlanningPoker.Planning do
     session_id |> to_pid |> :gen_statem.call(:complete_estimation)
   end
 
+  def lock_section(session_id, section_id, user_id) do
+    session_id |> to_pid |> :gen_statem.call({:lock_section, section_id, user_id})
+  end
+
+  def unlock_section(session_id, section_id, user_id) do
+    session_id |> to_pid |> :gen_statem.call({:unlock_section, section_id, user_id})
+  end
+
+  def update_section_content(session_id, section_id, content, user_id) do
+    session_id |> to_pid |> :gen_statem.call({:update_section_content, section_id, content, user_id})
+  end
+
+  def add_section(session_id, position, user_id) do
+    session_id |> to_pid |> :gen_statem.call({:add_section, position, user_id})
+  end
+
   def to_pid(id) do
     [{pid, _value}] = Registry.lookup(PlanningPoker.PlanningSession.Registry, id)
     pid

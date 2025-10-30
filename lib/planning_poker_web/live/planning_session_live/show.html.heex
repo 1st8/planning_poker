@@ -13,6 +13,8 @@
           id="voting"
           issue={issue}
           mode={@planning_session.mode}
+          current_user_id={@current_participant.id}
+          session_id={@planning_session.id}
         />
       <% %{state: :magic_estimation} = data -> %>
         <.live_component
