@@ -37,3 +37,4 @@ npm-debug.log
 
 .elixir_ls
 config/.env.exs
+.claude/settings.local.json

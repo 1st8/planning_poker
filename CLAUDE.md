@@ -1,128 +1,148 @@
-# CLAUDE.md
+# Planning Poker
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+A real-time collaborative planning poker application for agile teams to estimate GitLab issues.
 
-## Project Overview
+## Purpose
 
-PlanningPoker is a Phoenix LiveView application for conducting agile planning sessions. It integrates with GitLab to fetch issues and supports two estimation modes: traditional Planning Poker and Magic Estimation.
+Planning Poker is a Phoenix LiveView application that enables distributed teams to estimate the complexity and effort of GitLab issues in real-time. The application integrates with GitLab's API to fetch issues and supports two estimation methodologies:
 
-## Development Commands
+1. **Traditional Planning Poker**: Teams vote simultaneously on individual issues using story point cards, then reveal and discuss results
+2. **Magic Estimation**: Teams collaboratively arrange issues in ascending order of complexity by dragging them between columns and placing story point markers
 
-### Setup
-```bash
-mix setup                 # Install dependencies and build assets
-mix deps.get              # Install Elixir dependencies
-mix assets.setup          # Install Tailwind and esbuild
-mix assets.build          # Build assets
+## Architecture Overview
+
+### Core Components
+
+**State Management (`lib/planning_poker/planning_session.ex`)**
+- Implements `:gen_statem` behavior for managing planning session lifecycle
+- Four distinct states: `:lobby`, `:voting`, `:results`, `:magic_estimation`
+- Handles state transitions, vote collection, and issue management
+- Integrates with `GitlabApi` for asynchronous issue fetching
+- Broadcasts state changes via `Phoenix.PubSub` for real-time updates
+
+**LiveView Layer (`lib/planning_poker_web/live/planning_session_live/`)**
+- `Show`: Main LiveView coordinating all components and handling events
+- `LobbyComponent`: Displays issue list and controls for starting sessions
+- `VotingComponent`: Interactive voting interface with story point cards
+- `ResultsComponent`: Vote aggregation and reveal functionality
+- `MagicEstimationComponent`: Drag-and-drop interface with sortable issue lists
+- `ParticipantsListComponent`: Real-time participant presence tracking
+- `VotingControlsComponent`: Session flow control buttons
+
+**Integration Points**
+- GitLab OAuth authentication for user identity
+- GitLab API for fetching issues from configured issue boards (via `DEFAULT_LIST_ID`)
+- Phoenix Presence for tracking active participants in sessions
+- Phoenix PubSub for broadcasting state changes to all connected clients
+
+### Data Flow
+
+1. Users authenticate via GitLab OAuth, receiving an access token
+2. Planning session process starts as a supervised GenStatem process
+3. LiveView subscribes to session PubSub topic and monitors the session process
+4. Session asynchronously fetches issues from GitLab API using user token
+5. State changes are broadcast to all connected LiveView clients
+6. Participant presence is tracked and synchronized via Phoenix Presence
+
+### Key Design Decisions
+
+- **Stateful Sessions**: Each planning session runs as a separate supervised process, allowing independent session management and fault tolerance
+- **Real-time Sync**: PubSub ensures all participants see the same state simultaneously
+- **Async Issue Fetching**: GitLab API calls are offloaded to supervised tasks to prevent blocking the state machine
+- **Component Architecture**: UI is split into focused LiveComponents for maintainability and reusability
+
+---
+
+<!-- usage-rules-start -->
+<!-- usage-rules-header -->
+# Usage Rules
+
+**IMPORTANT**: Consult these usage rules early and often when working with the packages listed below.
+Before attempting to use any of these packages or to discover if you should use them, review their
+usage rules to understand the correct patterns, conventions, and best practices.
+<!-- usage-rules-header-end -->
+
+<!-- usage_rules-start -->
+## usage_rules usage
+_A dev tool for Elixir projects to gather LLM usage rules from dependencies_
+
+## Using Usage Rules
+
+Many packages have usage rules, which you should *thoroughly* consult before taking any
+action. These usage rules contain guidelines and rules *directly from the package authors*.
+They are your best source of knowledge for making decisions.
+
+## Modules & functions in the current app and dependencies
+
+When looking for docs for modules & functions that are dependencies of the current project,
+or for Elixir itself, use `mix usage_rules.docs`
+
+```
+# Search a whole module
+mix usage_rules.docs Enum
+
+# Search a specific function
+mix usage_rules.docs Enum.zip
+
+# Search a specific function & arity
+mix usage_rules.docs Enum.zip/1
 ```
 
-### Running the Application
-```bash
-mix phx.server            # Start Phoenix server (dev mode)
-iex -S mix phx.server     # Start with interactive shell
+
+## Searching Documentation
+
+You should also consult the documentation of any tools you are using, early and often. The best 
+way to accomplish this is to use the `usage_rules.search_docs` mix task. Once you have
+found what you are looking for, use the links in the search results to get more detail. For example:
+
+```
+# Search docs for all packages in the current application, including Elixir
+mix usage_rules.search_docs Enum.zip
+
+# Search docs for specific packages
+mix usage_rules.search_docs Req.get -p req
+
+# Search docs for multi-word queries
+mix usage_rules.search_docs "making requests" -p req
+
+# Search only in titles (useful for finding specific functions/modules)
+mix usage_rules.search_docs "Enum.zip" --query-by title
 ```
 
-### Testing
-```bash
-mix test                  # Run all tests
-mix test test/path/to/specific_test.exs  # Run specific test file
-mix test test/path/to/specific_test.exs:42  # Run specific test at line 42
-```
 
-### Asset Management
-```bash
-mix assets.deploy         # Build and minify assets for production
-```
+<!-- usage_rules-end -->
+<!-- usage_rules:elixir-start -->
+## usage_rules:elixir usage
+[usage_rules:elixir usage rules](deps/usage_rules/usage-rules/elixir.md)
+<!-- usage_rules:elixir-end -->
+<!-- usage_rules:otp-start -->
+## usage_rules:otp usage
+[usage_rules:otp usage rules](deps/usage_rules/usage-rules/otp.md)
+<!-- usage_rules:otp-end -->
+<!-- phoenix:ecto-start -->
+## phoenix:ecto usage
+[phoenix:ecto usage rules](deps/phoenix/usage-rules/ecto.md)
+<!-- phoenix:ecto-end -->
+<!-- phoenix:elixir-start -->
+## phoenix:elixir usage
+[phoenix:elixir usage rules](deps/phoenix/usage-rules/elixir.md)
+<!-- phoenix:elixir-end -->
+<!-- phoenix:html-start -->
+## phoenix:html usage
+[phoenix:html usage rules](deps/phoenix/usage-rules/html.md)
+<!-- phoenix:html-end -->
+<!-- phoenix:liveview-start -->
+## phoenix:liveview usage
+[phoenix:liveview usage rules](deps/phoenix/usage-rules/liveview.md)
+<!-- phoenix:liveview-end -->
+<!-- phoenix:phoenix-start -->
+## phoenix:phoenix usage
+[phoenix:phoenix usage rules](deps/phoenix/usage-rules/phoenix.md)
+<!-- phoenix:phoenix-end -->
+<!-- igniter-start -->
+## igniter usage
+_A code generation and project patching framework_
 
-### Docker
-```bash
-docker build -t planning_poker .
-docker run -p 4000:4000 -e SECRET_KEY_BASE=... -e GITLAB_CLIENT_ID=... planning_poker
-```
-
-## Architecture
-
-### State Management with gen_statem
-
-The core of the application is `PlanningPoker.PlanningSession` (lib/planning_poker/planning_session.ex:1), which uses Erlang's `:gen_statem` behavior to manage planning sessions as state machines with four states:
-
-- **:lobby** - Initial state where issues are loaded and mode is selected
-- **:voting** - Traditional planning poker voting on a single issue
-- **:results** - Display voting results
-- **:magic_estimation** - Drag-and-drop estimation mode with story point markers
-
-State transitions are triggered by events (e.g., `start_voting`, `finish_voting`) and broadcast to all participants via Phoenix.PubSub.
-
-### Session Management
-
-Planning sessions are:
-- Started on-demand via `PlanningPoker.Planning.ensure_started/2` (lib/planning_poker/planning.ex:4)
-- Registered in a Registry for process discovery (lib/planning_poker/application.ex:18)
-- Long-lived processes that persist across participant connections
-- Accessed via `Planning.to_pid/1` helper which looks up the process by session ID
-
-### Real-time Communication
-
-The application uses two Phoenix real-time mechanisms:
-
-1. **Phoenix.PubSub** - For broadcasting session state changes to all participants
-   - Topic format: `"planning_sessions:#{session_id}"`
-   - Used for state transitions, issue updates
-
-2. **Phoenix.Presence** - For tracking participant presence and votes
-   - Participants join via `Planning.join_participant/2` (lib/planning_poker/planning.ex:16)
-   - Votes stored as metadata in Presence tracking
-   - Presence updates trigger `presence_diff` events in LiveView
-
-### LiveView Architecture
-
-`PlanningPokerWeb.PlanningSessionLive.Show` (lib/planning_poker_web/live/planning_session_live/show.ex:1) is the main LiveView that:
-- Monitors the planning session process (dies if session crashes)
-- Subscribes to PubSub for state changes
-- Tracks Presence for participant updates
-- Renders different components based on session state
-
-Components are organized by state:
-- `LobbyComponent` - Issue selection and mode switching
-- `VotingComponent` - Card selection for planning poker
-- `ResultsComponent` - Display vote results
-- `MagicEstimationComponent` - Drag-and-drop interface
-- `ParticipantsListComponent` - Show connected users
-
-### GitLab Integration
-
-`PlanningPoker.GitlabApi` (lib/planning_poker/gitlab_api.ex:1) uses GraphQL to:
-- Fetch issues from a GitLab board list (configured via `DEFAULT_LIST_ID` env var)
-- Filter for unestimated issues (weight: None)
-- Retrieve full issue details including description, epic, author
-
-Authentication uses Ueberauth with GitLab OAuth strategy. The token is stored in the session and passed to the planning session GenStatem for API calls.
-
-### Async Task Handling
-
-Issue fetching is async to avoid blocking the state machine:
-- Uses `Task.Supervisor.async_nolink/2` (lib/planning_poker/planning_session.ex:237)
-- Stores task ref in state (`:fetch_issues_ref`, `:fetch_issue_ref`)
-- Handles results via info messages (lib/planning_poker/planning_session.ex:179)
-- Broadcasts updated state when async tasks complete
-
-## Key Configuration
-
-Required environment variables:
-- `SECRET_KEY_BASE` - Phoenix secret (generate with `mix phx.gen.secret`)
-- `GITLAB_CLIENT_ID` and `GITLAB_CLIENT_SECRET` - OAuth credentials
-- `PHX_HOST` - Host for URL generation (default: `example.com`)
-- `DEFAULT_LIST_ID` - GitLab board list ID for fetching issues
-
-See config/runtime.exs:1 for full configuration details.
-
-## Important Implementation Notes
-
-### Vote Clearing
-When committing results, votes are cleared by iterating through all Presence entries and updating each participant's metadata to remove the `:vote` key (lib/planning_poker/planning.ex:55).
-
-### Magic Estimation
-Story point markers are dynamically created from the options list, excluding "?" (lib/planning_poker/planning_session.ex:85). Issues and markers can be dragged between "unestimated" and "estimated" lists, with position tracked via index.
-
-### Session Recovery
-LiveViews monitor the planning session process. If the session crashes, the LiveView displays an error and terminates itself (lib/planning_poker_web/live/planning_session_live/show.ex:121).
+[igniter usage rules](deps/igniter/usage-rules.md)
+<!-- igniter-end -->
+<!-- usage-rules-end -->
