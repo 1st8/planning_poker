@@ -20,10 +20,21 @@ defmodule PlanningPoker.Application do
       PlanningPokerWeb.Endpoint
     ]
 
+    # Add mock provider GenServer if configured
+    children = maybe_add_mock_provider(children)
+
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: PlanningPoker.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  defp maybe_add_mock_provider(children) do
+    if PlanningPoker.IssueProvider.get_provider() == PlanningPoker.IssueProviders.Mock do
+      [{PlanningPoker.IssueProviders.Mock, []} | children]
+    else
+      children
+    end
   end
 
   # Tell Phoenix to update the endpoint configuration

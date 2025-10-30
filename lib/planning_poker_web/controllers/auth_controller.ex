@@ -1,18 +1,46 @@
 defmodule PlanningPokerWeb.AuthController do
   @moduledoc """
-  Auth controller responsible for handling Ueberauth responses
+  Auth controller responsible for handling Ueberauth responses and mock authentication
   """
 
   use PlanningPokerWeb, :controller
 
-  plug Ueberauth
+  plug Ueberauth when action in [:callback]
 
   # alias Ueberauth.Strategy.Helpers
-  alias PlanningPoker.UserFromAuth
+  alias PlanningPoker.{UserFromAuth, IssueProvider}
 
   # def request(conn, _params) do
   #   render(conn, "request.html", callback_url: Helpers.callback_url(conn))
   # end
+
+  @doc """
+  Mock authentication for local development.
+  Logs in as one of the predefined mock users (alice, bob, carol).
+  Only available when using the Mock issue provider.
+  """
+  def mock_callback(conn, %{"username" => username}) do
+    if IssueProvider.get_provider() == PlanningPoker.IssueProviders.Mock do
+      case PlanningPoker.IssueProviders.Mock.get_user(username) do
+        nil ->
+          conn
+          |> put_flash(:error, "Unknown mock user: #{username}. Available: alice, bob, carol")
+          |> redirect(to: "/")
+
+        user ->
+          conn
+          |> put_session(:current_user, user)
+          |> put_session(:token, "mock-token-#{username}")
+          |> configure_session(renew: true)
+          |> put_flash(:info, "Logged in as #{user.name} (mock)")
+          |> redirect(to: "/")
+      end
+    else
+      conn
+      |> put_flash(:error, "Mock authentication is only available with ISSUE_PROVIDER=mock")
+      |> redirect(to: "/")
+    end
+  end
 
   def delete(conn, _params) do
     conn

@@ -34,7 +34,17 @@ planning_poker-*.tar
 # In case you use Node.js/npm, you want to ignore these.
 npm-debug.log
 /assets/node_modules/
+/node_modules/
+
+# Playwright E2E test artifacts
+/test/e2e/test-results/
+/test/e2e/playwright-report/
+/test/e2e/.cache/
+/playwright/.cache/
+playwright-report/
+test-results/
 
 .elixir_ls
 config/.env.exs
 .claude/settings.local.json
+.playwright-mcp
