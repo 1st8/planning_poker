@@ -26,6 +26,16 @@ defmodule PlanningPoker.PlanningSession do
 
   @impl :gen_statem
   def init(%{id: id, token: token}) do
+    require Logger
+
+    Logger.info("""
+    PlanningSession STARTING
+    Session ID: #{inspect(id)}
+    Process PID: #{inspect(self())}
+    Parent PID: #{inspect(Process.get(:"$ancestors"))}
+    Links: #{inspect(Process.info(self(), :links))}
+    """)
+
     {:ok, :lobby,
      %{
        id: id,
@@ -43,6 +53,35 @@ defmodule PlanningPoker.PlanningSession do
 
   @impl :gen_statem
   def callback_mode, do: [:handle_event_function, :state_enter]
+
+  @impl :gen_statem
+  def terminate(reason, state, data) do
+    require Logger
+
+    log_level =
+      case reason do
+        {:shutdown, :closed} -> :warning
+        :normal -> :info
+        :shutdown -> :info
+        {:shutdown, _} -> :warning
+        _ -> :error
+      end
+
+    Logger.log(log_level, """
+    PlanningSession TERMINATED
+    Session ID: #{inspect(data.id)}
+    Process PID: #{inspect(self())}
+    State: #{inspect(state)}
+    Reason: #{inspect(reason)}
+    Links at termination: #{inspect(Process.info(self(), :links))}
+    Data keys: #{inspect(Map.keys(data))}
+    Has current_issue: #{inspect(Map.has_key?(data, :current_issue))}
+    Has fetch_issues_ref: #{inspect(Map.has_key?(data, :fetch_issues_ref))}
+    Has fetch_issue_ref: #{inspect(Map.has_key?(data, :fetch_issue_ref))}
+    """)
+
+    :ok
+  end
 
   @impl :gen_statem
   def handle_event(:enter, _event, :lobby, data) do
@@ -285,6 +324,60 @@ defmodule PlanningPoker.PlanningSession do
     broadcast_state_change(state, new_data)
 
     {:keep_state, new_data}
+  end
+
+  # Handle task crashes/failures (from async_nolink tasks)
+  def handle_event(:info, {:DOWN, ref, :process, _pid, reason}, state, data) do
+    require Logger
+
+    cond do
+      # fetch_issues task failed
+      Map.get(data, :fetch_issues_ref) == ref ->
+        Logger.error("""
+        fetch_issues task failed in PlanningSession
+        Session ID: #{inspect(data.id)}
+        State: #{inspect(state)}
+        Reason: #{inspect(reason)}
+        """)
+        new_data = data |> Map.delete(:fetch_issues_ref)
+        broadcast_state_change(state, new_data)
+        {:keep_state, new_data}
+
+      # fetch_issue task failed
+      Map.get(data, :fetch_issue_ref) == ref ->
+        Logger.error("""
+        fetch_issue task failed in PlanningSession
+        Session ID: #{inspect(data.id)}
+        State: #{inspect(state)}
+        Reason: #{inspect(reason)}
+        """)
+        new_data = data |> Map.delete(:fetch_issue_ref)
+        broadcast_state_change(state, new_data)
+        {:keep_state, new_data}
+
+      # Unknown DOWN message
+      true ->
+        Logger.warning("""
+        Unknown DOWN message in PlanningSession
+        Session ID: #{inspect(data.id)}
+        State: #{inspect(state)}
+        Ref: #{inspect(ref)}
+        Reason: #{inspect(reason)}
+        """)
+        {:keep_state, data}
+    end
+  end
+
+  # Catch-all for unhandled info messages to prevent crashes
+  def handle_event(:info, msg, state, data) do
+    require Logger
+    Logger.warning("""
+    Unhandled info message in PlanningSession
+    Session ID: #{inspect(data.id)}
+    State: #{inspect(state)}
+    Message: #{inspect(msg)}
+    """)
+    {:keep_state, data}
   end
 
   defp to_payload(state, data) do

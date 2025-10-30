@@ -56,8 +56,8 @@ config :planning_poker, PlanningPokerWeb.Endpoint,
 # Enable dev routes for dashboard and mailbox
 config :planning_poker, dev_routes: true
 
-# Do not include metadata nor timestamps in development logs
-config :logger, :default_formatter, format: "[$level] $message\n"
+# Include timestamps in development logs for debugging
+config :logger, :default_formatter, format: "[$time $level] $message\n"
 
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.
@@ -78,5 +78,6 @@ config :swoosh, :api_client, false
 
 config :logger,
   level: :debug
-  # handle_otp_reports: true,
-  # handle_sasl_reports: true
+
+# handle_otp_reports: true,
+# handle_sasl_reports: true

@@ -16,6 +16,7 @@ defmodule PlanningPoker.Application do
       # {PlanningPoker.Worker, arg},
       {Task.Supervisor, name: PlanningPoker.TaskSupervisor},
       {Registry, [name: PlanningPoker.PlanningSession.Registry, keys: :unique]},
+      {DynamicSupervisor, name: PlanningPoker.PlanningSession.Supervisor, strategy: :one_for_one},
       # Start to serve requests, typically the last entry
       PlanningPokerWeb.Endpoint
     ]
