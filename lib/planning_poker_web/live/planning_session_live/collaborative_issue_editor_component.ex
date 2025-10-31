@@ -2,6 +2,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
   use PlanningPokerWeb, :live_component
 
   alias PlanningPoker.Planning
+  require Logger
 
   @impl true
   def render(assigns) do
@@ -210,8 +211,13 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
       :ok ->
         {:noreply, socket}
 
-      {:error, _reason} ->
-        # Silently fail for live updates
+      {:error, reason} ->
+        # Log error for debugging while maintaining silent UX for live updates
+        Logger.warning(
+          "Failed to update section content: session_id=#{socket.assigns.session_id}, " <>
+            "section_id=#{section_id}, user_id=#{socket.assigns.current_user_id}, reason=#{inspect(reason)}"
+        )
+
         {:noreply, socket}
     end
   end
@@ -246,8 +252,12 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
 
   defp render_markdown(content) do
     case Earmark.as_html(content) do
-      {:ok, html, _} -> html
-      {:error, _html, _errors} -> "<p>Error rendering markdown</p>"
+      {:ok, html, _} ->
+        # Sanitize HTML to prevent XSS attacks
+        HtmlSanitizeEx.basic_html(html)
+
+      {:error, _html, _errors} ->
+        "<p>Error rendering markdown</p>"
     end
   end
 end

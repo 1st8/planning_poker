@@ -129,6 +129,11 @@ defmodule PlanningPoker.PlanningSession do
         has_modifications = IssueSection.has_modifications?(issue["sections"] || [])
 
         if has_modifications do
+          # TODO: Potential race condition - concurrent edits can occur during save operation.
+          # Consider adding a "saving" state or locking all sections during save to prevent
+          # modifications while the async update is in progress.
+          # See: https://github.com/1st8/planning_poker/issues/XX
+
           # Start async update task
           new_data = update_current_issue(data)
           broadcast_state_change(:voting, new_data)
