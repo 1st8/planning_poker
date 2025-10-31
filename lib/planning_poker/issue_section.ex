@@ -155,6 +155,29 @@ defmodule PlanningPoker.IssueSection do
   end
 
   @doc """
+  Restores a deleted section.
+
+  Unmarks a section as deleted, making it visible again.
+  Returns `{:ok, updated_sections}` on success.
+  """
+  def restore_section(sections, section_id) do
+    case find_section(sections, section_id) do
+      nil ->
+        {:error, :section_not_found}
+
+      section ->
+        if section["deleted"] do
+          updated_sections = update_section(sections, section_id, fn s ->
+            Map.put(s, "deleted", false)
+          end)
+          {:ok, updated_sections}
+        else
+          {:ok, sections}  # Already not deleted
+        end
+    end
+  end
+
+  @doc """
   Checks if any sections have been modified, added, or deleted.
 
   Returns true if:

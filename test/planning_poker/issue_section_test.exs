@@ -235,6 +235,51 @@ defmodule PlanningPoker.IssueSectionTest do
     end
   end
 
+  describe "restore_section/2" do
+    setup do
+      sections = [
+        %{
+          "id" => "section-1",
+          "content" => "Test content",
+          "locked_by" => nil,
+          "position" => 0,
+          "deleted" => true
+        }
+      ]
+
+      {:ok, sections: sections}
+    end
+
+    test "restores a deleted section", %{sections: sections} do
+      {:ok, updated} = IssueSection.restore_section(sections, "section-1")
+
+      section = Enum.find(updated, &(&1["id"] == "section-1"))
+      assert section["deleted"] == false
+    end
+
+    test "succeeds when section is already not deleted" do
+      sections = [
+        %{
+          "id" => "section-1",
+          "content" => "Test",
+          "locked_by" => nil,
+          "position" => 0,
+          "deleted" => false
+        }
+      ]
+
+      {:ok, updated} = IssueSection.restore_section(sections, "section-1")
+      section = Enum.find(updated, &(&1["id"] == "section-1"))
+      assert section["deleted"] == false
+    end
+
+    test "returns error for non-existent section", %{sections: sections} do
+      result = IssueSection.restore_section(sections, "non-existent")
+
+      assert result == {:error, :section_not_found}
+    end
+  end
+
   describe "has_modifications?/1" do
     test "returns false when no sections exist" do
       refute IssueSection.has_modifications?([])

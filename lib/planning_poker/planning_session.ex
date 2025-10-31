@@ -310,6 +310,25 @@ defmodule PlanningPoker.PlanningSession do
     end
   end
 
+  def handle_event({:call, from}, {:restore_section, section_id}, :voting, data) do
+    case data.current_issue do
+      nil ->
+        {:keep_state, data, [{:reply, from, {:error, :no_current_issue}}]}
+
+      issue ->
+        case IssueSection.restore_section(issue["sections"], section_id) do
+          {:ok, updated_sections} ->
+            updated_issue = Map.put(issue, "sections", updated_sections)
+            new_data = Map.put(data, :current_issue, updated_issue)
+            broadcast_state_change(:voting, new_data)
+            {:keep_state, new_data, [{:reply, from, :ok}]}
+
+          {:error, reason} ->
+            {:keep_state, data, [{:reply, from, {:error, reason}}]}
+        end
+    end
+  end
+
   def handle_event({:call, from}, :save_and_back_to_lobby, _state, data) when not is_map_key(data, :current_issue) do
     {:keep_state, data, [{:reply, from, {:error, :no_current_issue}}]}
   end
