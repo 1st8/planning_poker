@@ -109,6 +109,16 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     {:noreply, socket}
   end
 
+  def handle_event("save_and_back_to_lobby", _value, socket) do
+    case Planning.save_and_back_to_lobby(socket.assigns.planning_session.id) do
+      :ok ->
+        {:noreply, socket}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Failed to save issue: #{inspect(reason)}")}
+    end
+  end
+
   @impl true
   def handle_info({:state_change, new_planning_session}, socket) do
     socket =

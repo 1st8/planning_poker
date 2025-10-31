@@ -144,6 +144,10 @@ defmodule PlanningPoker.Planning do
     session_id |> to_pid |> :gen_statem.call(:back_to_lobby)
   end
 
+  def save_and_back_to_lobby(session_id) do
+    session_id |> to_pid |> :gen_statem.call(:save_and_back_to_lobby)
+  end
+
   def start_magic_estimation(session_id) do
     session_id |> to_pid |> :gen_statem.call(:start_magic_estimation)
   end
@@ -170,6 +174,10 @@ defmodule PlanningPoker.Planning do
 
   def add_section(session_id, position, user_id) do
     session_id |> to_pid |> :gen_statem.call({:add_section, position, user_id})
+  end
+
+  def delete_section(session_id, section_id, user_id) do
+    session_id |> to_pid |> :gen_statem.call({:delete_section, section_id, user_id})
   end
 
   def to_pid(id) do

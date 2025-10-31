@@ -58,31 +58,46 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
                   >
                     Cancel
                   </button>
+                  <button
+                    phx-click="delete_section"
+                    phx-value-section-id={section["id"]}
+                    phx-target={@myself}
+                    class="px-2 py-1 text-xs border border-red-300 text-red-600 rounded hover:bg-red-50"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             <% else %>
               <!-- Display mode: looks like regular HTML -->
-              <div class="section-display relative group/section">
-                <%= if section["locked_by"] do %>
-                  <!-- Subtle lock indicator when locked by others -->
-                  <div class="absolute -left-6 top-0 text-gray-400" title="Being edited by another participant">
-                    <.icon name="hero-lock-closed" class="w-3 h-3" />
+              <div class={"section-display relative group/section #{if section["deleted"], do: "opacity-50"}"}>
+                <%= if section["deleted"] do %>
+                  <!-- Deleted indicator -->
+                  <div class="absolute -left-8 top-0 text-red-500" title="Marked for deletion">
+                    <.icon name="hero-trash" class="w-4 h-4" />
                   </div>
                 <% else %>
-                  <!-- Edit button on hover -->
-                  <button
-                    phx-click="lock_section"
-                    phx-value-section-id={section["id"]}
-                    phx-target={@myself}
-                    class="absolute -right-10 top-0 opacity-0 group-hover/section:opacity-100 transition-opacity bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs px-2 py-0.5 rounded border border-gray-300 shadow-sm"
-                    title="Edit this section"
-                  >
-                    Edit
-                  </button>
+                  <%= if section["locked_by"] do %>
+                    <!-- Subtle lock indicator when locked by others -->
+                    <div class="absolute -left-6 top-0 text-gray-400" title="Being edited by another participant">
+                      <.icon name="hero-lock-closed" class="w-3 h-3" />
+                    </div>
+                  <% else %>
+                    <!-- Edit button on hover -->
+                    <button
+                      phx-click="lock_section"
+                      phx-value-section-id={section["id"]}
+                      phx-target={@myself}
+                      class="absolute -right-10 top-0 opacity-0 group-hover/section:opacity-100 transition-opacity bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs px-2 py-0.5 rounded border border-gray-300 shadow-sm"
+                      title="Edit this section"
+                    >
+                      Edit
+                    </button>
+                  <% end %>
                 <% end %>
 
                 <!-- Regular prose content -->
-                <div class="section-content">
+                <div class={"section-content #{if section["deleted"], do: "line-through"}"}>
                   <%= if section["content"] == "" do %>
                     <p class="text-gray-400 italic text-sm">Empty section</p>
                   <% else %>
@@ -172,9 +187,14 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
   end
 
   @impl true
-  def handle_event("delete_section", %{"section-id" => _section_id}, socket) do
-    # TODO: Implement delete_section in the state machine
-    {:noreply, put_flash(socket, :info, "Delete section not yet implemented")}
+  def handle_event("delete_section", %{"section-id" => section_id}, socket) do
+    case Planning.delete_section(socket.assigns.session_id, section_id, socket.assigns.current_user_id) do
+      :ok ->
+        {:noreply, socket}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Could not delete section")}
+    end
   end
 
   # Helpers

@@ -96,4 +96,65 @@ defmodule PlanningPoker.IssueProviders.MockTest do
       assert "Carol Chen" in names
     end
   end
+
+  describe "update_issue/4" do
+    test "updates issue description" do
+      client = Mock.client()
+
+      # First fetch the original issue
+      {:ok, original} = Mock.fetch_issue(client, "mock-issue-1")
+      original_description = original["description"]
+
+      # Update the issue
+      new_description = "Updated description for testing"
+      {:ok, updated} = Mock.update_issue(client, "mock-project", "1", %{description: new_description})
+
+      assert updated["description"] == new_description
+      assert updated["id"] == "mock-issue-1"
+      assert updated[:base_url] == "http://localhost:4000"
+
+      # Verify the change persists
+      {:ok, fetched} = Mock.fetch_issue(client, "mock-issue-1")
+      assert fetched["description"] == new_description
+
+      # Verify other fields remain unchanged
+      assert fetched["title"] == original["title"]
+      assert fetched["author"] == original["author"]
+    end
+
+    test "updates multiple fields" do
+      client = Mock.client()
+
+      {:ok, updated} =
+        Mock.update_issue(client, "mock-project", "2", %{
+          description: "New description",
+          title: "Updated title"
+        })
+
+      assert updated["description"] == "New description"
+      assert updated["title"] == "Updated title"
+    end
+
+    test "returns error for non-existent issue" do
+      client = Mock.client()
+      result = Mock.update_issue(client, "mock-project", "999", %{description: "Test"})
+
+      assert result == {:error, :not_found}
+    end
+
+    test "preserves issue structure after update" do
+      client = Mock.client()
+
+      {:ok, updated} = Mock.update_issue(client, "mock-project", "3", %{description: "Test"})
+
+      # Verify all expected fields are present
+      assert updated["id"]
+      assert updated["iid"]
+      assert updated["title"]
+      assert updated["description"]
+      assert updated["webUrl"]
+      assert updated["referencePath"]
+      assert updated[:base_url]
+    end
+  end
 end

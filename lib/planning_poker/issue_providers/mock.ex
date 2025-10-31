@@ -67,6 +67,16 @@ defmodule PlanningPoker.IssueProviders.Mock do
     end
   end
 
+  @impl PlanningPoker.IssueProvider
+  def update_issue(_client, _project_id, issue_iid, attrs) do
+    result = GenServer.call(__MODULE__, {:update_issue, issue_iid, attrs})
+
+    case result do
+      nil -> {:error, :not_found}
+      issue -> {:ok, issue}
+    end
+  end
+
   @doc """
   Gets a mock user by username.
 
@@ -118,6 +128,34 @@ defmodule PlanningPoker.IssueProviders.Mock do
       end
 
     {:reply, enhanced_issue, state}
+  end
+
+  @impl true
+  def handle_call({:update_issue, issue_iid, attrs}, _from, state) do
+    # Find issue by iid
+    issue =
+      state.issues
+      |> Map.values()
+      |> Enum.find(&(&1["iid"] == issue_iid))
+
+    case issue do
+      nil ->
+        {:reply, nil, state}
+
+      found_issue ->
+        # Update the issue with new attributes (string keys)
+        string_attrs = for {key, val} <- attrs, into: %{}, do: {to_string(key), val}
+
+        updated_issue =
+          found_issue
+          |> Map.merge(string_attrs)
+          |> Map.put(:base_url, "http://localhost:4000")
+
+        # Update state
+        new_state = put_in(state.issues[found_issue["id"]], updated_issue)
+
+        {:reply, updated_issue, new_state}
+    end
   end
 
   # Private Functions
