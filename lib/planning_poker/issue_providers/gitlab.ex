@@ -18,7 +18,6 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
       client = Gitlab.client(token: user_token)
   """
 
-  use Tesla
   require Logger
 
   @behaviour PlanningPoker.IssueProvider
@@ -106,7 +105,7 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
     # default id is "Open" list of https://gitlab.com/1st8/planning_poker/-/boards/3468418
     list_id = Keyword.get(opts, :list_id, System.get_env("DEFAULT_LIST_ID") || 9_945_417)
 
-    case post(client, "/api/graphql", %{
+    case Tesla.post(client, "/api/graphql", %{
            operationName: "ListIssues",
            variables: %{
              filters: %{weight: "None"},
@@ -153,7 +152,7 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
   """
   @impl PlanningPoker.IssueProvider
   def fetch_issue(client, issue_id, _opts \\ []) do
-    case post(client, "/api/graphql", %{
+    case Tesla.post(client, "/api/graphql", %{
            operationName: "GetIssue",
            variables: %{
              issueId: issue_id
@@ -211,7 +210,7 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
     encoded_project_id = URI.encode_www_form(project_id)
     path = "/api/v4/projects/#{encoded_project_id}/issues/#{issue_iid}"
 
-    case put(client, path, attrs) do
+    case Tesla.put(client, path, attrs) do
       {:ok, env} ->
         issue = env.body
 
