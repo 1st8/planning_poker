@@ -67,6 +67,16 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
                   <div class="absolute -left-6 -top-0.5 text-error/50" title="Marked for deletion">
                     <.icon name="hero-trash" class="w-4 h-4" />
                   </div>
+                  <!-- Restore button on hover -->
+                  <button
+                    phx-click="restore_section"
+                    phx-value-section-id={section["id"]}
+                    phx-target={@myself}
+                    class="absolute right-0 top-0 opacity-0 group-hover/section:opacity-100 transition-opacity btn btn-sm btn-success"
+                    title="Restore this section"
+                  >
+                    <.icon name="hero-arrow-uturn-left" class="w-3 h-3" /> Restore
+                  </button>
                 <% else %>
                   <%= if is_locked_by_other do %>
                     <!-- Avatar and lock indicator when locked by others -->
@@ -203,6 +213,17 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
 
       {:error, _reason} ->
         {:noreply, put_flash(socket, :error, "Could not delete section")}
+    end
+  end
+
+  @impl true
+  def handle_event("restore_section", %{"section-id" => section_id}, socket) do
+    case Planning.restore_section(socket.assigns.session_id, section_id) do
+      :ok ->
+        {:noreply, socket}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Could not restore section")}
     end
   end
 

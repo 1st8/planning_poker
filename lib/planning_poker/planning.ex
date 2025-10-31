@@ -176,6 +176,10 @@ defmodule PlanningPoker.Planning do
     session_id |> to_pid |> :gen_statem.call({:delete_section, section_id, user_id})
   end
 
+  def restore_section(session_id, section_id) do
+    session_id |> to_pid |> :gen_statem.call({:restore_section, section_id})
+  end
+
   def to_pid(id) do
     [{pid, _value}] = Registry.lookup(PlanningPoker.PlanningSession.Registry, id)
     pid
