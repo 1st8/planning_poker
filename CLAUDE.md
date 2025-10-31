@@ -72,6 +72,29 @@ For local development and testing, use the mock provider:
 4. Open multiple browser windows/tabs to test collaboration features
 5. Mock provider includes 6 sample issues with realistic content
 
+### E2E Testing
+
+End-to-end tests are located in `test/e2e/` and use Playwright:
+
+```bash
+# Run all e2e tests
+npm run e2e:test
+
+# Run a specific test file
+npm run e2e:test -- readiness_controls.spec.js
+
+# Run tests with UI (interactive mode)
+npm run e2e:ui
+
+# Run tests in headed mode (see browser)
+npm run e2e:headed
+
+# Debug tests (step through with debugger)
+npm run e2e:debug
+```
+
+Tests automatically start the Phoenix server on port 4004 in e2e mode.
+
 ---
 
 <!-- usage-rules-start -->

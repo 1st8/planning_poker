@@ -95,6 +95,15 @@ defmodule PlanningPoker.Planning do
     )
   end
 
+  def set_readiness(session_id, %{id: id} = participant, value) do
+    Presence.update(
+      self(),
+      planning_session_topic(session_id),
+      id,
+      participant |> Map.put(:readiness, value)
+    )
+  end
+
   def get_planning_session!(id) do
     id |> to_pid |> :gen_statem.call(:get_state)
   end
