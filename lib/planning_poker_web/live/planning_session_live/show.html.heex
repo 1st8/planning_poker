@@ -12,7 +12,11 @@
           module={PlanningPokerWeb.PlanningSessionLive.VotingComponent}
           id="voting"
           issue={issue}
+          issue_modified={@planning_session.issue_modified}
           mode={@planning_session.mode}
+          current_user_id={@current_participant.id}
+          session_id={@planning_session.id}
+          participants={@participants}
         />
       <% %{state: :magic_estimation} = data -> %>
         <.live_component
@@ -61,6 +65,14 @@
         module={PlanningPokerWeb.PlanningSessionLive.VotingControlsComponent}
         id="voting-controls"
         options={@planning_session.options}
+        current_participant={@current_participant}
+      />
+    <% end %>
+
+    <%= if @planning_session.state == :magic_estimation do %>
+      <.live_component
+        module={PlanningPokerWeb.PlanningSessionLive.ReadinessControlsComponent}
+        id="readiness-controls"
         current_participant={@current_participant}
       />
     <% end %>

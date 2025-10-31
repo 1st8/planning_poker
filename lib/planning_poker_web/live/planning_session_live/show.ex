@@ -67,8 +67,22 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     {:noreply, socket}
   end
 
+  def handle_event("set_readiness", %{"value" => value}, socket) do
+    Planning.set_readiness(
+      socket.assigns.planning_session.id,
+      socket.assigns.current_participant,
+      value
+    )
+
+    {:noreply, socket}
+  end
+
   def handle_event("change_mode", _value, socket) do
-    new_mode = if socket.assigns.planning_session.mode == :magic_estimation, do: :planning_poker, else: :magic_estimation
+    new_mode =
+      if socket.assigns.planning_session.mode == :magic_estimation,
+        do: :planning_poker,
+        else: :magic_estimation
+
     :ok = Planning.change_mode(socket.assigns.planning_session.id, new_mode)
     {:noreply, socket}
   end
@@ -78,8 +92,20 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     {:noreply, socket}
   end
 
-  def handle_event("issue_moved", %{"issue_id" => issue_id, "from" => from, "to" => to, "new_index" => new_index}, socket) do
-    :ok = Planning.update_issue_position(socket.assigns.planning_session.id, issue_id, from, to, new_index)
+  def handle_event(
+        "issue_moved",
+        %{"issue_id" => issue_id, "from" => from, "to" => to, "new_index" => new_index},
+        socket
+      ) do
+    :ok =
+      Planning.update_issue_position(
+        socket.assigns.planning_session.id,
+        issue_id,
+        from,
+        to,
+        new_index
+      )
+
     {:noreply, socket}
   end
 
@@ -91,6 +117,16 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
   def handle_event("back_to_lobby", _value, socket) do
     :ok = Planning.back_to_lobby(socket.assigns.planning_session.id)
     {:noreply, socket}
+  end
+
+  def handle_event("save_and_back_to_lobby", _value, socket) do
+    case Planning.save_and_back_to_lobby(socket.assigns.planning_session.id) do
+      :ok ->
+        {:noreply, socket}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Failed to save issue: #{inspect(reason)}")}
+    end
   end
 
   @impl true
