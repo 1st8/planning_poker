@@ -123,35 +123,6 @@ defmodule PlanningPoker.IssueSection do
     end
   end
 
-  @doc """
-  Adds a new section at the specified position.
-
-  All sections at or after the specified position will have their positions incremented.
-  """
-  def add_section(sections, position, user_id) do
-    # Increment positions of sections at or after the new position
-    updated_sections = Enum.map(sections, fn section ->
-      if section["position"] >= position do
-        Map.put(section, "position", section["position"] + 1)
-      else
-        section
-      end
-    end)
-
-    # Create new section
-    new_section = %{
-      "id" => "section-#{generate_section_id()}",
-      "content" => "",
-      "original_content" => nil,  # nil indicates this is a new section
-      "locked_by" => user_id,  # Lock it for the creator immediately
-      "position" => position,
-      "deleted" => false
-    }
-
-    # Add and re-sort
-    [new_section | updated_sections]
-    |> Enum.sort_by(& &1["position"])
-  end
 
   @doc """
   Marks a section as deleted (soft delete).
@@ -228,10 +199,5 @@ defmodule PlanningPoker.IssueSection do
         section
       end
     end)
-  end
-
-  defp generate_section_id do
-    :crypto.strong_rand_bytes(8)
-    |> Base.url_encode64(padding: false)
   end
 end

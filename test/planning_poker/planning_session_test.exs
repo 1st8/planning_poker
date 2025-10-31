@@ -114,28 +114,6 @@ defmodule PlanningPoker.PlanningSessionTest do
       assert result == {:error, :section_not_locked}
     end
 
-    test "add_section adds a new section at specified position", %{pid: pid} do
-      assert :gen_statem.call(pid, {:add_section, 1, "user-123"}) == :ok
-
-      # Verify new section was added
-      state = :gen_statem.call(pid, :get_state)
-      assert length(state.current_issue["sections"]) == 3
-
-      # Find the new section at position 1
-      new_section = Enum.find(state.current_issue["sections"], &(&1["position"] == 1 && &1["content"] == ""))
-      assert new_section != nil
-      assert new_section["locked_by"] == "user-123"
-    end
-
-    test "add_section increments positions of following sections", %{pid: pid} do
-      :gen_statem.call(pid, {:add_section, 1, "user-123"})
-
-      # Verify positions were updated
-      state = :gen_statem.call(pid, :get_state)
-      original_section_1 = Enum.find(state.current_issue["sections"], &(&1["id"] == "section-1"))
-      assert original_section_1["position"] == 2
-    end
-
     test "broadcasts state changes on section operations", %{pid: pid} do
       # Clear any initial state change messages
       receive do
@@ -243,14 +221,6 @@ defmodule PlanningPoker.PlanningSessionTest do
       # Lock and delete a section
       :gen_statem.call(pid, {:lock_section, "section-0", "user-123"})
       :gen_statem.call(pid, {:delete_section, "section-0", "user-123"})
-
-      state = :gen_statem.call(pid, :get_state)
-      assert state.issue_modified
-    end
-
-    test "issue_modified is true when new section is added", %{pid: pid} do
-      # Add a new section
-      :gen_statem.call(pid, {:add_section, 1, "user-123"})
 
       state = :gen_statem.call(pid, :get_state)
       assert state.issue_modified
