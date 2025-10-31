@@ -23,9 +23,31 @@ defmodule PlanningPokerWeb.PlanningSessionLive.VotingComponent do
         />
 
         <:controls>
-          <button class="btn" phx-click={if @mode == :magic_estimation, do: "back_to_lobby", else: "finish_voting"}>
-            <%= if @mode == :magic_estimation, do: "Back", else: "Finish Voting" %>
-          </button>
+          <%= if @mode == :magic_estimation do %>
+            <%= if @issue_modified do %>
+              <!-- Show both buttons when issue has modifications -->
+              <button class="btn btn-ghost" phx-click="back_to_lobby">
+                Back (discard changes)
+              </button>
+              <button
+                class="btn btn-primary"
+                phx-click="save_and_back_to_lobby"
+                disabled={@issue["saving"]}
+              >
+                <%= if @issue["saving"], do: "Saving...", else: "Save issue & Back" %>
+              </button>
+            <% else %>
+              <!-- Show only Back button when no modifications -->
+              <button class="btn" phx-click="back_to_lobby">
+                Back
+              </button>
+            <% end %>
+          <% else %>
+            <!-- Traditional planning poker mode -->
+            <button class="btn" phx-click="finish_voting">
+              Finish Voting
+            </button>
+          <% end %>
         </:controls>
       </.layout_box>
     </main>

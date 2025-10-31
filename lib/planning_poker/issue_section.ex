@@ -33,8 +33,10 @@ defmodule PlanningPoker.IssueSection do
       %{
         "id" => "section-#{index}",
         "content" => content,
+        "original_content" => content,
         "locked_by" => nil,
-        "position" => index
+        "position" => index,
+        "deleted" => false
       }
     end)
   end
@@ -140,8 +142,10 @@ defmodule PlanningPoker.IssueSection do
     new_section = %{
       "id" => "section-#{generate_section_id()}",
       "content" => "",
+      "original_content" => nil,  # nil indicates this is a new section
       "locked_by" => user_id,  # Lock it for the creator immediately
-      "position" => position
+      "position" => position,
+      "deleted" => false
     }
 
     # Add and re-sort
@@ -150,10 +154,61 @@ defmodule PlanningPoker.IssueSection do
   end
 
   @doc """
+  Marks a section as deleted (soft delete).
+
+  Only the user who has the section locked can mark it as deleted.
+  Returns `{:ok, updated_sections}` on success.
+  """
+  def mark_section_deleted(sections, section_id, user_id) do
+    case find_section(sections, section_id) do
+      nil ->
+        {:error, :section_not_found}
+
+      section ->
+        case section["locked_by"] do
+          ^user_id ->
+            updated_sections = update_section(sections, section_id, fn s ->
+              s
+              |> Map.put("deleted", true)
+              |> Map.put("locked_by", nil)  # Unlock when deleting
+            end)
+            {:ok, updated_sections}
+
+          nil ->
+            {:error, :section_not_locked}
+
+          _other_user ->
+            {:error, :not_lock_owner}
+        end
+    end
+  end
+
+  @doc """
+  Checks if any sections have been modified, added, or deleted.
+
+  Returns true if:
+  - Any section's content differs from original_content
+  - Any section is marked as deleted
+  - Any section has original_content == nil (newly added)
+  """
+  def has_modifications?(sections) when is_list(sections) do
+    Enum.any?(sections, fn section ->
+      section["deleted"] == true ||
+      section["original_content"] == nil ||
+      section["content"] != section["original_content"]
+    end)
+  end
+
+  def has_modifications?(_), do: false
+
+  @doc """
   Reassembles sections back into markdown text.
+
+  Filters out deleted sections before joining.
   """
   def sections_to_markdown(sections) do
     sections
+    |> Enum.reject(& &1["deleted"])
     |> Enum.sort_by(& &1["position"])
     |> Enum.map(& &1["content"])
     |> Enum.join("\n\n")

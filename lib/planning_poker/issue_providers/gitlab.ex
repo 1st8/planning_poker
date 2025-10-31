@@ -181,4 +181,79 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
         error
     end
   end
+
+  @doc """
+  Updates a GitLab issue with new attributes.
+
+  Uses the REST API endpoint: PUT /projects/:id/issues/:issue_iid
+
+  ## Arguments
+
+  - `client` - Tesla client from `client/1`
+  - `project_id` - Project ID or path (e.g., "1st8/planning_poker" or "42")
+  - `issue_iid` - Issue internal ID (e.g., "123" for #123)
+  - `attrs` - Map of attributes to update (supports: description, title, labels, etc.)
+
+  ## Returns
+
+  - `{:ok, issue}` where issue is the updated issue map
+  - `{:error, reason}` on failure
+
+  ## Example
+
+      iex> client = Gitlab.client(token: "oauth-token")
+      iex> Gitlab.update_issue(client, "1st8/planning_poker", "42", %{description: "Updated"})
+      {:ok, %{"id" => 123, "iid" => 42, "description" => "Updated", ...}}
+  """
+  @impl PlanningPoker.IssueProvider
+  def update_issue(client, project_id, issue_iid, attrs) do
+    # URL-encode the project_id to handle paths like "1st8/planning_poker"
+    encoded_project_id = URI.encode_www_form(project_id)
+    path = "/api/v4/projects/#{encoded_project_id}/issues/#{issue_iid}"
+
+    case put(client, path, attrs) do
+      {:ok, env} ->
+        issue = env.body
+
+        if issue do
+          # Convert REST API response to match GraphQL format
+          enhanced_issue =
+            issue
+            |> normalize_rest_issue()
+            |> Map.put(:base_url, System.get_env("GITLAB_SITE", "https://gitlab.com"))
+
+          Logger.debug("Updated issue #{issue_iid} in project #{project_id}")
+          {:ok, enhanced_issue}
+        else
+          {:error, :not_found}
+        end
+
+      {:error, reason} = error ->
+        Logger.error("Failed to update issue #{issue_iid}: #{inspect(reason)}")
+        error
+    end
+  end
+
+  # Private helper to normalize REST API response to match GraphQL format
+  defp normalize_rest_issue(issue) do
+    %{
+      "id" => "gid://gitlab/Issue/#{issue["id"]}",
+      "iid" => to_string(issue["iid"]),
+      "title" => issue["title"],
+      "description" => issue["description"],
+      "descriptionHtml" => issue["description_html"],
+      "referencePath" => issue["references"]["full"],
+      "webUrl" => issue["web_url"],
+      "author" => %{"name" => get_in(issue, ["author", "name"])},
+      "createdAt" => issue["created_at"]
+    }
+    |> maybe_add_epic(issue)
+  end
+
+  defp maybe_add_epic(result, issue) do
+    case issue["epic"] do
+      nil -> result
+      epic -> Map.put(result, "epic", %{"title" => epic["title"], "reference" => epic["reference"]})
+    end
+  end
 end

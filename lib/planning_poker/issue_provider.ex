@@ -100,6 +100,34 @@ defmodule PlanningPoker.IssueProvider do
               {:ok, map()} | {:error, any()}
 
   @doc """
+  Updates an issue with new attributes.
+
+  ## Arguments
+
+  - `client` - The authenticated client from `client/1`
+  - `project_id` - The project identifier (format varies by provider)
+  - `issue_iid` - The issue internal ID (e.g., "123" for #123)
+  - `attrs` - Map of attributes to update (e.g., `%{description: "updated content"}`)
+
+  ## Returns
+
+  - `{:ok, issue}` where `issue` is the updated issue map
+  - `{:error, reason}` on failure
+
+  ## Example
+
+      iex> client = IssueProvider.client(token: "token")
+      iex> IssueProvider.update_issue(client, "1st8/planning_poker", "42", %{description: "New description"})
+      {:ok, %{"id" => "...", "description" => "New description", ...}}
+  """
+  @callback update_issue(
+              client :: any(),
+              project_id :: String.t(),
+              issue_iid :: String.t(),
+              attrs :: map()
+            ) :: {:ok, map()} | {:error, any()}
+
+  @doc """
   Returns the configured issue provider module.
 
   Checks the `ISSUE_PROVIDER` environment variable, falling back to defaults
@@ -154,5 +182,14 @@ defmodule PlanningPoker.IssueProvider do
   """
   def fetch_issue(client, issue_id, opts \\ []) do
     get_provider().fetch_issue(client, issue_id, opts)
+  end
+
+  @doc """
+  Updates an issue using the configured provider.
+
+  This is a convenience function that delegates to `get_provider().update_issue(client, project_id, issue_iid, attrs)`.
+  """
+  def update_issue(client, project_id, issue_iid, attrs) do
+    get_provider().update_issue(client, project_id, issue_iid, attrs)
   end
 end
