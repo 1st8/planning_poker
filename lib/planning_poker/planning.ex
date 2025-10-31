@@ -168,6 +168,10 @@ defmodule PlanningPoker.Planning do
     session_id |> to_pid |> :gen_statem.call({:unlock_section, section_id, user_id})
   end
 
+  def cancel_section_edit(session_id, section_id, user_id) do
+    session_id |> to_pid |> :gen_statem.call({:cancel_section_edit, section_id, user_id})
+  end
+
   def update_section_content(session_id, section_id, content, user_id) do
     session_id |> to_pid |> :gen_statem.call({:update_section_content, section_id, content, user_id})
   end
