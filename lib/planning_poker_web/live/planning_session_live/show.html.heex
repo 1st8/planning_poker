@@ -69,6 +69,14 @@
       />
     <% end %>
 
+    <%= if @planning_session.state == :magic_estimation do %>
+      <.live_component
+        module={PlanningPokerWeb.PlanningSessionLive.ReadinessControlsComponent}
+        id="readiness-controls"
+        current_participant={@current_participant}
+      />
+    <% end %>
+
     <.live_component
       module={PlanningPokerWeb.PlanningSessionLive.ParticipantsListComponent}
       id="participants-list"

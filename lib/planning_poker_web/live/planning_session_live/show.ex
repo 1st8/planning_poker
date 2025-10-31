@@ -67,6 +67,16 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     {:noreply, socket}
   end
 
+  def handle_event("set_readiness", %{"value" => value}, socket) do
+    Planning.set_readiness(
+      socket.assigns.planning_session.id,
+      socket.assigns.current_participant,
+      value
+    )
+
+    {:noreply, socket}
+  end
+
   def handle_event("change_mode", _value, socket) do
     new_mode =
       if socket.assigns.planning_session.mode == :magic_estimation,
