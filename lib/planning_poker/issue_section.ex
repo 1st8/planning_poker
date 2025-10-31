@@ -56,7 +56,9 @@ defmodule PlanningPoker.IssueSection do
         case section["locked_by"] do
           nil ->
             updated_sections = update_section(sections, section_id, fn s ->
-              Map.put(s, "locked_by", user_id)
+              s
+              |> Map.put("locked_by", user_id)
+              |> Map.put("content_at_lock", s["content"])
             end)
             {:ok, updated_sections}
 
@@ -73,6 +75,7 @@ defmodule PlanningPoker.IssueSection do
   Unlocks a section.
 
   Only the user who locked the section can unlock it.
+  Clears the content_at_lock field when unlocking.
   """
   def unlock_section(sections, section_id, user_id) do
     case find_section(sections, section_id) do
@@ -83,7 +86,41 @@ defmodule PlanningPoker.IssueSection do
         case section["locked_by"] do
           ^user_id ->
             updated_sections = update_section(sections, section_id, fn s ->
-              Map.put(s, "locked_by", nil)
+              s
+              |> Map.put("locked_by", nil)
+              |> Map.delete("content_at_lock")
+            end)
+            {:ok, updated_sections}
+
+          nil ->
+            {:ok, sections}  # Already unlocked
+
+          _other_user ->
+            {:error, :not_lock_owner}
+        end
+    end
+  end
+
+  @doc """
+  Cancels editing a section and restores the original content.
+
+  Restores content to what it was when the section was locked,
+  then unlocks the section. Only the user who locked it can cancel.
+  """
+  def cancel_section_edit(sections, section_id, user_id) do
+    case find_section(sections, section_id) do
+      nil ->
+        {:error, :section_not_found}
+
+      section ->
+        case section["locked_by"] do
+          ^user_id ->
+            updated_sections = update_section(sections, section_id, fn s ->
+              content_to_restore = s["content_at_lock"] || s["content"]
+              s
+              |> Map.put("content", content_to_restore)
+              |> Map.put("locked_by", nil)
+              |> Map.delete("content_at_lock")
             end)
             {:ok, updated_sections}
 

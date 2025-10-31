@@ -79,6 +79,13 @@ defmodule PlanningPoker.IssueSectionTest do
       assert section["locked_by"] == "user-123"
     end
 
+    test "preserves content when locking", %{sections: sections} do
+      {:ok, updated} = IssueSection.lock_section(sections, "section-1", "user-123")
+
+      section = Enum.find(updated, &(&1["id"] == "section-1"))
+      assert section["content_at_lock"] == "Test"
+    end
+
     test "allows same user to lock already locked section", %{sections: sections} do
       {:ok, sections} = IssueSection.lock_section(sections, "section-1", "user-123")
       {:ok, updated} = IssueSection.lock_section(sections, "section-1", "user-123")
@@ -104,7 +111,7 @@ defmodule PlanningPoker.IssueSectionTest do
   describe "unlock_section/3" do
     setup do
       sections = [
-        %{"id" => "section-1", "content" => "Test", "locked_by" => "user-123", "position" => 0},
+        %{"id" => "section-1", "content" => "Test", "locked_by" => "user-123", "position" => 0, "content_at_lock" => "Original"},
         %{"id" => "section-2", "content" => "Test 2", "locked_by" => nil, "position" => 1}
       ]
 
@@ -116,6 +123,13 @@ defmodule PlanningPoker.IssueSectionTest do
 
       section = Enum.find(updated, &(&1["id"] == "section-1"))
       assert section["locked_by"] == nil
+    end
+
+    test "clears content_at_lock when unlocking", %{sections: sections} do
+      {:ok, updated} = IssueSection.unlock_section(sections, "section-1", "user-123")
+
+      section = Enum.find(updated, &(&1["id"] == "section-1"))
+      refute Map.has_key?(section, "content_at_lock")
     end
 
     test "prevents unlocking section locked by another user", %{sections: sections} do
@@ -133,6 +147,72 @@ defmodule PlanningPoker.IssueSectionTest do
 
     test "returns error for non-existent section", %{sections: sections} do
       result = IssueSection.unlock_section(sections, "non-existent", "user-123")
+
+      assert result == {:error, :section_not_found}
+    end
+  end
+
+  describe "cancel_section_edit/3" do
+    setup do
+      sections = [
+        %{
+          "id" => "section-1",
+          "content" => "Modified content",
+          "content_at_lock" => "Original content",
+          "locked_by" => "user-123",
+          "position" => 0
+        },
+        %{
+          "id" => "section-2",
+          "content" => "Test 2",
+          "locked_by" => nil,
+          "position" => 1
+        }
+      ]
+
+      {:ok, sections: sections}
+    end
+
+    test "restores content to content_at_lock and unlocks", %{sections: sections} do
+      {:ok, updated} = IssueSection.cancel_section_edit(sections, "section-1", "user-123")
+
+      section = Enum.find(updated, &(&1["id"] == "section-1"))
+      assert section["content"] == "Original content"
+      assert section["locked_by"] == nil
+      refute Map.has_key?(section, "content_at_lock")
+    end
+
+    test "preserves content if content_at_lock is missing" do
+      sections = [
+        %{
+          "id" => "section-1",
+          "content" => "Current content",
+          "locked_by" => "user-123",
+          "position" => 0
+        }
+      ]
+
+      {:ok, updated} = IssueSection.cancel_section_edit(sections, "section-1", "user-123")
+
+      section = Enum.find(updated, &(&1["id"] == "section-1"))
+      assert section["content"] == "Current content"
+    end
+
+    test "prevents canceling section locked by another user", %{sections: sections} do
+      result = IssueSection.cancel_section_edit(sections, "section-1", "user-456")
+
+      assert result == {:error, :not_lock_owner}
+    end
+
+    test "succeeds for already unlocked section", %{sections: sections} do
+      {:ok, updated} = IssueSection.cancel_section_edit(sections, "section-2", "user-123")
+
+      section = Enum.find(updated, &(&1["id"] == "section-2"))
+      assert section["locked_by"] == nil
+    end
+
+    test "returns error for non-existent section", %{sections: sections} do
+      result = IssueSection.cancel_section_edit(sections, "non-existent", "user-123")
 
       assert result == {:error, :section_not_found}
     end

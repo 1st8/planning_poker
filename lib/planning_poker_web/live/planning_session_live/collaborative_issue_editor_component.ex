@@ -43,7 +43,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
                     Save
                   </button>
                   <button
-                    phx-click="unlock_section"
+                    phx-click="cancel_section_edit"
                     phx-value-section-id={section["id"]}
                     phx-target={@myself}
                     class="btn btn-ghost btn-sm"
@@ -177,6 +177,21 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
 
       {:error, _reason} ->
         {:noreply, put_flash(socket, :error, "Could not unlock section")}
+    end
+  end
+
+  @impl true
+  def handle_event("cancel_section_edit", %{"section-id" => section_id}, socket) do
+    case Planning.cancel_section_edit(
+           socket.assigns.session_id,
+           section_id,
+           socket.assigns.current_user_id
+         ) do
+      :ok ->
+        {:noreply, socket}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Could not cancel section edit")}
     end
   end
 
