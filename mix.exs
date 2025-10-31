@@ -64,7 +64,8 @@ defmodule PlanningPoker.MixProject do
       {:ueberauth, "~> 0.7.0"},
       {:ueberauth_gitlab_strategy, "~> 0.4.0"},
       {:igniter, "~> 0.6.30"},
-      {:earmark, "~> 1.4"}
+      {:earmark, "~> 1.4"},
+      {:html_sanitize_ex, "~> 1.4"}
     ]
   end
 
