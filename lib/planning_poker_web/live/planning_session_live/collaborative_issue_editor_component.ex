@@ -72,7 +72,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
                     phx-click="restore_section"
                     phx-value-section-id={section["id"]}
                     phx-target={@myself}
-                    class="absolute right-0 top-0 opacity-0 group-hover/section:opacity-100 transition-opacity btn btn-sm btn-success"
+                    class="absolute right-0 top-0 z-10 opacity-0 group-hover/section:opacity-100 transition-opacity btn btn-sm btn-success"
                     title="Restore this section"
                   >
                     <.icon name="hero-arrow-uturn-left" class="w-3 h-3" /> Restore
