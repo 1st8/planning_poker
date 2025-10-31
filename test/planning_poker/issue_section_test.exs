@@ -177,69 +177,6 @@ defmodule PlanningPoker.IssueSectionTest do
     end
   end
 
-  describe "add_section/3" do
-    setup do
-      sections = [
-        %{"id" => "section-1", "content" => "First", "locked_by" => nil, "position" => 0},
-        %{"id" => "section-2", "content" => "Second", "locked_by" => nil, "position" => 1}
-      ]
-
-      {:ok, sections: sections}
-    end
-
-    test "adds new section at specified position", %{sections: sections} do
-      updated = IssueSection.add_section(sections, 1, "user-123")
-
-      assert length(updated) == 3
-
-      # Check the new section is at position 1
-      new_section = Enum.find(updated, &(&1["position"] == 1 && &1["content"] == ""))
-      assert new_section != nil
-      assert new_section["locked_by"] == "user-123"
-    end
-
-    test "increments positions of sections at or after new position", %{sections: sections} do
-      updated = IssueSection.add_section(sections, 1, "user-123")
-
-      # Original section-2 should now be at position 2
-      section_2 = Enum.find(updated, &(&1["id"] == "section-2"))
-      assert section_2["position"] == 2
-    end
-
-    test "adds section at the beginning", %{sections: sections} do
-      updated = IssueSection.add_section(sections, 0, "user-123")
-
-      assert length(updated) == 3
-
-      # Original sections should be shifted
-      section_1 = Enum.find(updated, &(&1["id"] == "section-1"))
-      assert section_1["position"] == 1
-    end
-
-    test "adds section at the end", %{sections: sections} do
-      updated = IssueSection.add_section(sections, 2, "user-123")
-
-      assert length(updated) == 3
-
-      new_section = Enum.find(updated, &(&1["position"] == 2 && &1["content"] == ""))
-      assert new_section != nil
-    end
-
-    test "locks new section for the creator", %{sections: sections} do
-      updated = IssueSection.add_section(sections, 1, "user-123")
-
-      new_section = Enum.find(updated, &(&1["position"] == 1 && &1["content"] == ""))
-      assert new_section["locked_by"] == "user-123"
-    end
-
-    test "sets original_content to nil for new sections", %{sections: sections} do
-      updated = IssueSection.add_section(sections, 1, "user-123")
-
-      new_section = Enum.find(updated, &(&1["position"] == 1 && &1["content"] == ""))
-      assert new_section["original_content"] == nil
-    end
-  end
-
   describe "mark_section_deleted/3" do
     setup do
       sections = [

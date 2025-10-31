@@ -291,20 +291,6 @@ defmodule PlanningPoker.PlanningSession do
     end
   end
 
-  def handle_event({:call, from}, {:add_section, position, user_id}, :voting, data) do
-    case data.current_issue do
-      nil ->
-        {:keep_state, data, [{:reply, from, {:error, :no_current_issue}}]}
-
-      issue ->
-        updated_sections = IssueSection.add_section(issue["sections"], position, user_id)
-        updated_issue = Map.put(issue, "sections", updated_sections)
-        new_data = Map.put(data, :current_issue, updated_issue)
-        broadcast_state_change(:voting, new_data)
-        {:keep_state, new_data, [{:reply, from, :ok}]}
-    end
-  end
-
   def handle_event({:call, from}, {:delete_section, section_id, user_id}, :voting, data) do
     case data.current_issue do
       nil ->

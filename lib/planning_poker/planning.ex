@@ -172,10 +172,6 @@ defmodule PlanningPoker.Planning do
     session_id |> to_pid |> :gen_statem.call({:update_section_content, section_id, content, user_id})
   end
 
-  def add_section(session_id, position, user_id) do
-    session_id |> to_pid |> :gen_statem.call({:add_section, position, user_id})
-  end
-
   def delete_section(session_id, section_id, user_id) do
     session_id |> to_pid |> :gen_statem.call({:delete_section, section_id, user_id})
   end
