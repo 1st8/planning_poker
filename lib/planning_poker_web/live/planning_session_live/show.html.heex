@@ -16,6 +16,7 @@
           mode={@planning_session.mode}
           current_user_id={@current_participant.id}
           session_id={@planning_session.id}
+          participants={@participants}
         />
       <% %{state: :magic_estimation} = data -> %>
         <.live_component

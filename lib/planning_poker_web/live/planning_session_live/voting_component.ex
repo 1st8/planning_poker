@@ -8,33 +8,38 @@ defmodule PlanningPokerWeb.PlanningSessionLive.VotingComponent do
     <main>
       <.layout_box title="Voting">
         <h1 class="text-4xl font-semibold">
-          <a class="underline decoration-primary hover:decoration-primary/50 decoration-4" href={@issue["webUrl"]} target="_blank">
-            <%= @issue["title"] %>
+          <a
+            class="underline decoration-primary hover:decoration-primary/50 decoration-4"
+            href={@issue["webUrl"]}
+            target="_blank"
+          >
+            {@issue["title"]}
           </a>
         </h1>
-
-        <!-- Collaborative Issue Editor -->
+        
+    <!-- Collaborative Issue Editor -->
         <.live_component
           module={CollaborativeIssueEditorComponent}
           id="collaborative-editor"
           issue={@issue}
           current_user_id={@current_user_id}
           session_id={@session_id}
+          participants={@participants}
         />
 
         <:controls>
           <%= if @mode == :magic_estimation do %>
             <%= if @issue_modified do %>
               <!-- Show both buttons when issue has modifications -->
-              <button class="btn btn-ghost" phx-click="back_to_lobby">
-                Back (discard changes)
+              <button class="btn btn-sm" phx-click="back_to_lobby">
+                Discard changes & Back
               </button>
               <button
                 class="btn btn-primary"
                 phx-click="save_and_back_to_lobby"
                 disabled={@issue["saving"]}
               >
-                <%= if @issue["saving"], do: "Saving...", else: "Save issue & Back" %>
+                {if @issue["saving"], do: "Saving...", else: "Save issue & Back"}
               </button>
             <% else %>
               <!-- Show only Back button when no modifications -->
