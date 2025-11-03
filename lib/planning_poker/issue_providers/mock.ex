@@ -28,6 +28,7 @@ defmodule PlanningPoker.IssueProviders.Mock do
   """
 
   use GenServer
+  require Logger
   @behaviour PlanningPoker.IssueProvider
 
   # Client API
@@ -146,6 +147,33 @@ defmodule PlanningPoker.IssueProviders.Mock do
         # Update the issue with new attributes (string keys)
         string_attrs = for {key, val} <- attrs, into: %{}, do: {to_string(key), val}
 
+        # Log what's being updated
+        changes =
+          string_attrs
+          |> Enum.map(fn {key, new_val} ->
+            old_val = Map.get(found_issue, key)
+
+            case key do
+              "weight" ->
+                "weight: #{inspect(old_val)} → #{inspect(new_val)}"
+
+              "description" ->
+                old_preview = if old_val, do: String.slice(old_val, 0..50), else: "nil"
+                new_preview = if new_val, do: String.slice(new_val, 0..50), else: "nil"
+                "description: #{old_preview}... → #{new_preview}..."
+
+              _ ->
+                "#{key}: #{inspect(old_val)} → #{inspect(new_val)}"
+            end
+          end)
+          |> Enum.join(", ")
+
+        Logger.info("""
+        Mock provider: Updating issue ##{issue_iid}
+        Title: #{found_issue["title"]}
+        Changes: #{changes}
+        """)
+
         updated_issue =
           found_issue
           |> Map.merge(string_attrs)
@@ -208,6 +236,7 @@ defmodule PlanningPoker.IssueProviders.Mock do
         "webUrl" => "http://localhost:4000/mock/issues/1",
         "author" => %{"name" => "Alice Anderson"},
         "createdAt" => "2024-01-15T10:00:00Z",
+        "weight" => nil,
         "epic" => %{
           "title" => "User Management Epic",
           "reference" => "&1"
@@ -231,7 +260,8 @@ defmodule PlanningPoker.IssueProviders.Mock do
         "referencePath" => "planning-poker#2",
         "webUrl" => "http://localhost:4000/mock/issues/2",
         "author" => %{"name" => "Bob Builder"},
-        "createdAt" => "2024-01-16T14:30:00Z"
+        "createdAt" => "2024-01-16T14:30:00Z",
+        "weight" => nil
       },
       %{
         "id" => "mock-issue-3",
@@ -258,6 +288,7 @@ defmodule PlanningPoker.IssueProviders.Mock do
         "webUrl" => "http://localhost:4000/mock/issues/3",
         "author" => %{"name" => "Carol Chen"},
         "createdAt" => "2024-01-17T09:15:00Z",
+        "weight" => nil,
         "epic" => %{
           "title" => "Communication Features",
           "reference" => "&2"
@@ -292,6 +323,7 @@ defmodule PlanningPoker.IssueProviders.Mock do
         "webUrl" => "http://localhost:4000/mock/issues/4",
         "author" => %{"name" => "Alice Anderson"},
         "createdAt" => "2024-01-18T11:00:00Z",
+        "weight" => nil,
         "epic" => %{
           "title" => "Technical Debt",
           "reference" => "&3"
@@ -316,7 +348,8 @@ defmodule PlanningPoker.IssueProviders.Mock do
         "referencePath" => "planning-poker#5",
         "webUrl" => "http://localhost:4000/mock/issues/5",
         "author" => %{"name" => "Bob Builder"},
-        "createdAt" => "2024-01-19T15:45:00Z"
+        "createdAt" => "2024-01-19T15:45:00Z",
+        "weight" => nil
       },
       %{
         "id" => "mock-issue-6",
@@ -347,6 +380,7 @@ defmodule PlanningPoker.IssueProviders.Mock do
         "webUrl" => "http://localhost:4000/mock/issues/6",
         "author" => %{"name" => "Carol Chen"},
         "createdAt" => "2024-01-20T08:30:00Z",
+        "weight" => nil,
         "epic" => %{
           "title" => "Data Integration",
           "reference" => "&4"

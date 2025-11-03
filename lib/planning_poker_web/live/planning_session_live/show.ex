@@ -139,6 +139,20 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     {:noreply, socket}
   end
 
+  def handle_info({:weight_update_errors, failures}, socket) do
+    # Show error flash for failed weight updates
+    error_count = length(failures)
+
+    error_msg =
+      if error_count == 1 do
+        "Failed to update 1 issue weight"
+      else
+        "Failed to update #{error_count} issue weights"
+      end
+
+    {:noreply, put_flash(socket, :error, error_msg)}
+  end
+
   def handle_info(%{event: "presence_diff"}, socket) do
     participants = Planning.get_participants!(socket.assigns.planning_session.id)
 
