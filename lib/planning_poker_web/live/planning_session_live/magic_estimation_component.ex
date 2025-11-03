@@ -20,10 +20,25 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent do
           </a>
         </div>
         <small class="text-sm"><%= @item["referencePath"] %></small>
+        <%= if note = get_note(@personal_notes, @item["id"]) do %>
+          <div class="mt-2 text-sm italic text-base-content/60 border-l-2 border-primary/30 pl-2">
+            <%= note %>
+          </div>
+        <% end %>
       </div>
     <% end %>
     """
   end
+
+  defp get_note(notes, issue_id) when is_map(notes) do
+    case Map.get(notes, issue_id) do
+      nil -> nil
+      "" -> nil
+      note -> note
+    end
+  end
+
+  defp get_note(_notes, _issue_id), do: nil
 
   def render(assigns) do
     ~H"""
@@ -55,7 +70,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent do
             <h2 class="text-xl font-semibold mb-4">Unestimated Issues</h2>
             <div class="issue-list sortable-list grow" data-column-id="unestimated-issues">
               <%= for item <- @unestimated_issues do %>
-                <.render_item item={item} />
+                <.render_item item={item} personal_notes={@personal_notes} />
               <% end %>
             </div>
           </div>
@@ -63,7 +78,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent do
             <h2 class="text-xl font-semibold mb-4">Estimated Issues (Ascending Story Points)</h2>
             <div class="issue-list sortable-list grow" data-column-id="estimated-issues">
               <%= for item <- @estimated_issues do %>
-                <.render_item item={item} />
+                <.render_item item={item} personal_notes={@personal_notes} />
               <% end %>
             </div>
           </div>
