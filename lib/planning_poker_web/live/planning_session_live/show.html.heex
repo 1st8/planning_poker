@@ -24,6 +24,9 @@
           id="magic_estimation"
           unestimated_issues={data.unestimated_issues}
           estimated_issues={data.estimated_issues}
+          updating_weights={Map.get(data, :updating_weights, false)}
+          weight_update_completed={Map.get(data, :weight_update_completed, 0)}
+          weight_update_total={Map.get(data, :weight_update_total, 0)}
         />
       <% %{state: :results, current_issue: issue} -> %>
         <.live_component

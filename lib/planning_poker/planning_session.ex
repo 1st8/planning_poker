@@ -190,8 +190,34 @@ defmodule PlanningPoker.PlanningSession do
   end
 
   def handle_event({:call, from}, :complete_estimation, :magic_estimation, data) do
-    broadcast_state_change(:lobby, data)
-    {:next_state, :lobby, data, [{:reply, from, :ok}]}
+    require Logger
+
+    # Calculate weights from the estimated issues positions
+    weight_map = calculate_weights_from_positions(data.estimated_issues)
+
+    Logger.info("""
+    Complete estimation called
+    Estimated issues count: #{length(data.estimated_issues)}
+    Weight map: #{inspect(weight_map)}
+    Weight map size: #{map_size(weight_map)}
+    """)
+
+    # If there are no weights to update, just transition to lobby
+    if map_size(weight_map) == 0 do
+      Logger.info("No weights to update, transitioning to lobby")
+      broadcast_state_change(:lobby, data)
+      {:next_state, :lobby, data, [{:reply, from, :ok}]}
+    else
+      Logger.info("Starting weight updates for #{map_size(weight_map)} issues")
+      # Start async weight updates
+      new_data = update_issue_weights(data, weight_map)
+
+      # Broadcast the updating state with progress
+      broadcast_state_change(:magic_estimation, new_data)
+
+      # Stay in magic_estimation state until updates complete
+      {:keep_state, new_data, [{:reply, from, :ok}]}
+    end
   end
 
   def handle_event(
@@ -467,6 +493,65 @@ defmodule PlanningPoker.PlanningSession do
     end
   end
 
+  # Handle weight update task completion
+  def handle_event(
+        :info,
+        {task_ref, {issue_id, result}},
+        :magic_estimation,
+        %{weight_update_tasks: tasks} = data
+      ) do
+    # Check if this is one of our weight update tasks
+    if task_ref in tasks do
+      Process.demonitor(task_ref, [:flush])
+
+      # Update progress
+      completed = data.weight_update_completed + 1
+      total = data.weight_update_total
+
+      # Track failures
+      failures =
+        case result do
+          {:ok, _} -> data.weight_update_failures
+          {:error, reason} -> [{issue_id, reason} | data.weight_update_failures]
+        end
+
+      new_data =
+        data
+        |> Map.put(:weight_update_completed, completed)
+        |> Map.put(:weight_update_failures, failures)
+
+      # Check if all tasks are complete
+      if completed >= total do
+        # All tasks done, clean up and transition to lobby
+        final_data =
+          new_data
+          |> Map.delete(:weight_update_tasks)
+          |> Map.delete(:weight_update_total)
+          |> Map.delete(:weight_update_completed)
+          |> Map.delete(:weight_update_failures)
+
+        # Broadcast the failures if any
+        if length(failures) > 0 do
+          Phoenix.PubSub.broadcast(
+            PlanningPoker.PubSub,
+            Planning.planning_session_topic(data.id),
+            {:weight_update_errors, failures}
+          )
+        end
+
+        broadcast_state_change(:lobby, final_data)
+        {:next_state, :lobby, final_data}
+      else
+        # Still waiting for more tasks, broadcast progress
+        broadcast_state_change(:magic_estimation, new_data)
+        {:keep_state, new_data}
+      end
+    else
+      # Not a weight update task, ignore
+      {:keep_state, data}
+    end
+  end
+
   # Handle task crashes/failures (from async_nolink tasks)
   def handle_event(:info, {:DOWN, ref, :process, _pid, reason}, state, data) do
     require Logger
@@ -511,6 +596,52 @@ defmodule PlanningPoker.PlanningSession do
         broadcast_state_change(state, new_data)
         {:keep_state, new_data}
 
+      # weight_update task failed
+      ref in Map.get(data, :weight_update_tasks, []) ->
+        Logger.error("""
+        weight_update task failed in PlanningSession
+        Session ID: #{inspect(data.id)}
+        State: #{inspect(state)}
+        Reason: #{inspect(reason)}
+        """)
+
+        # Treat this as a failed update
+        completed = data.weight_update_completed + 1
+        total = data.weight_update_total
+
+        # Add to failures (we don't have issue_id here, so use ref)
+        failures = [{ref, reason} | data.weight_update_failures]
+
+        new_data =
+          data
+          |> Map.put(:weight_update_completed, completed)
+          |> Map.put(:weight_update_failures, failures)
+
+        # Check if all tasks are complete
+        if completed >= total do
+          # All tasks done, clean up and transition to lobby
+          final_data =
+            new_data
+            |> Map.delete(:weight_update_tasks)
+            |> Map.delete(:weight_update_total)
+            |> Map.delete(:weight_update_completed)
+            |> Map.delete(:weight_update_failures)
+
+          # Broadcast the failures
+          Phoenix.PubSub.broadcast(
+            PlanningPoker.PubSub,
+            Planning.planning_session_topic(data.id),
+            {:weight_update_errors, failures}
+          )
+
+          broadcast_state_change(:lobby, final_data)
+          {:next_state, :lobby, final_data}
+        else
+          # Still waiting for more tasks, broadcast progress
+          broadcast_state_change(state, new_data)
+          {:keep_state, new_data}
+        end
+
       # Unknown DOWN message
       true ->
         Logger.warning("""
@@ -547,11 +678,19 @@ defmodule PlanningPoker.PlanningSession do
       end
 
     data
-    |> Map.drop([:token, :fetch_issues_ref, :fetch_issue_ref, :update_issue_ref])
+    |> Map.drop([
+      :token,
+      :fetch_issues_ref,
+      :fetch_issue_ref,
+      :update_issue_ref,
+      :weight_update_tasks,
+      :weight_update_failures
+    ])
     |> Map.merge(%{
       state: state,
       fetching: Map.has_key?(data, :fetch_issues_ref),
       issue_modified: issue_modified,
+      updating_weights: Map.has_key?(data, :weight_update_tasks),
       current_issue:
         case data[:current_issue] do
           nil ->
@@ -636,5 +775,86 @@ defmodule PlanningPoker.PlanningSession do
       # Fallback for mock or issues without proper reference path
       {"mock-project", issue["iid"]}
     end
+  end
+
+  defp calculate_weights_from_positions(estimated_issues) do
+    # Iterate through the estimated issues list and assign weights based on marker positions
+    # Issues before the first marker are left unweighted (nil)
+    # Issues after a marker get that marker's weight value
+    {weight_map, _current_weight} =
+      Enum.reduce(estimated_issues, {%{}, nil}, fn item, {weights, current_weight} ->
+        case item do
+          # When we hit a marker, update the current weight
+          %{"type" => "marker", "value" => value} ->
+            {weight, _} = Integer.parse(value)
+            {weights, weight}
+
+          # When we hit an issue, assign the current weight (if we've passed a marker)
+          %{"id" => issue_id} ->
+            if current_weight do
+              {Map.put(weights, issue_id, current_weight), current_weight}
+            else
+              # Issue is before the first marker, don't assign a weight
+              {weights, current_weight}
+            end
+
+          # Unknown item type, skip it
+          _ ->
+            {weights, current_weight}
+        end
+      end)
+
+    weight_map
+  end
+
+  defp update_issue_weights(data, weight_map) do
+    require Logger
+
+    # Find the full issue objects for the issues we need to update
+    issues_to_update =
+      data.issues
+      |> Enum.filter(fn issue -> Map.has_key?(weight_map, issue["id"]) end)
+
+    Logger.info("""
+    Preparing weight updates
+    Issues to update: #{length(issues_to_update)}
+    Issue details: #{inspect(Enum.map(issues_to_update, fn i -> {i["id"], i["iid"], i["title"]} end))}
+    """)
+
+    # Create async tasks for each issue update
+    tasks =
+      Enum.map(issues_to_update, fn issue ->
+        weight = Map.get(weight_map, issue["id"])
+        {project_id, issue_iid} = extract_issue_identifiers(issue)
+
+        Logger.info("Creating update task for issue ##{issue_iid} (#{issue["title"]}) with weight=#{weight}")
+
+        task =
+          Task.Supervisor.async_nolink(PlanningPoker.TaskSupervisor, fn ->
+            Logger.info("Executing update for issue ##{issue_iid} with weight=#{weight}")
+            client = IssueProvider.client(token: data.token)
+
+            result =
+              IssueProvider.update_issue(client, project_id, issue_iid, %{
+                weight: weight
+              })
+
+            Logger.info("Update result for issue ##{issue_iid}: #{inspect(result)}")
+
+            # Return the issue_id along with the result for tracking
+            {issue["id"], result}
+          end)
+
+        task.ref
+      end)
+
+    Logger.info("Created #{length(tasks)} update tasks")
+
+    # Store weight update state in data
+    data
+    |> Map.put(:weight_update_tasks, tasks)
+    |> Map.put(:weight_update_total, length(tasks))
+    |> Map.put(:weight_update_completed, 0)
+    |> Map.put(:weight_update_failures, [])
   end
 end
