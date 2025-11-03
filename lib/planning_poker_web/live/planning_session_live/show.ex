@@ -24,7 +24,8 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
      |> assign(:planning_session, Planning.get_planning_session!(id))
      |> assign_title()
      |> assign(:participants, Planning.get_participants!(id))
-     |> assign(:current_participant, participant)}
+     |> assign(:current_participant, participant)
+     |> assign(:personal_notes, %{})}
   end
 
   def mount(_params, _session, socket) do
@@ -75,6 +76,10 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     )
 
     {:noreply, socket}
+  end
+
+  def handle_event("sync_notes", %{"notes" => notes}, socket) do
+    {:noreply, assign(socket, :personal_notes, notes)}
   end
 
   def handle_event("change_mode", _value, socket) do

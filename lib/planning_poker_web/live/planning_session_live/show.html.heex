@@ -27,6 +27,7 @@
           updating_weights={Map.get(data, :updating_weights, false)}
           weight_update_completed={Map.get(data, :weight_update_completed, 0)}
           weight_update_total={Map.get(data, :weight_update_total, 0)}
+          personal_notes={@personal_notes}
         />
       <% %{state: :results, current_issue: issue} -> %>
         <.live_component
@@ -77,6 +78,14 @@
         module={PlanningPokerWeb.PlanningSessionLive.ReadinessControlsComponent}
         id="readiness-controls"
         current_participant={@current_participant}
+      />
+
+      <.live_component
+        module={PlanningPokerWeb.PlanningSessionLive.PersonalIssueNotesComponent}
+        id="personal-notes"
+        current_participant={@current_participant}
+        current_issue={@planning_session.current_issue}
+        personal_notes={@personal_notes}
       />
     <% end %>
 
