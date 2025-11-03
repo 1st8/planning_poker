@@ -137,6 +137,21 @@ defmodule PlanningPoker.Planning do
     end)
   end
 
+  def clear_readiness(session_id) do
+    topic = session_id |> planning_session_topic
+
+    Enum.each(get_participants!(session_id), fn %{id: id} = participant ->
+      Enum.each(Phoenix.Tracker.get_by_key(Presence, topic, id), fn {pid, _} ->
+        Presence.update(
+          pid,
+          planning_session_topic(session_id),
+          id,
+          participant |> Map.delete(:readiness)
+        )
+      end)
+    end)
+  end
+
   def refresh_issues(id) do
     id |> to_pid |> :gen_statem.call(:refresh_issues)
   end
