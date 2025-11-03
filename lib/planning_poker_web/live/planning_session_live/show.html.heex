@@ -69,7 +69,7 @@
       />
     <% end %>
 
-    <%= if @planning_session.state == :magic_estimation do %>
+    <%= if @planning_session.state == :voting and @planning_session.mode == :magic_estimation do %>
       <.live_component
         module={PlanningPokerWeb.PlanningSessionLive.ReadinessControlsComponent}
         id="readiness-controls"

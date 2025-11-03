@@ -102,8 +102,11 @@ defmodule PlanningPoker.PlanningSession do
       |> Map.put(:current_issue, current_issue)
       |> fetch_current_issue
       |> Map.put(:voting_started_at, DateTime.utc_now())
-      |> Map.put(:most_recent_issue_id, (if MapSet.member?(data.opened_issue_ids, issue_id), do: nil, else: issue_id))
-      |> Map.put(:opened_issue_ids, MapSet.put(data.opened_issue_ids,issue_id))
+      |> Map.put(
+        :most_recent_issue_id,
+        if(MapSet.member?(data.opened_issue_ids, issue_id), do: nil, else: issue_id)
+      )
+      |> Map.put(:opened_issue_ids, MapSet.put(data.opened_issue_ids, issue_id))
 
     broadcast_state_change(:voting, data)
 
@@ -111,15 +114,22 @@ defmodule PlanningPoker.PlanningSession do
   end
 
   def handle_event({:call, from}, :finish_voting, :voting, data) do
+    Planning.clear_readiness(data.id)
+
     broadcast_state_change(:results, data)
     {:next_state, :results, data, [{:reply, from, :ok}]}
   end
+
   def handle_event({:call, from}, :back_to_lobby, :voting, data) do
+    Planning.clear_readiness(data.id)
+
     broadcast_state_change(:lobby, data)
     {:next_state, :lobby, data, [{:reply, from, :ok}]}
   end
 
   def handle_event({:call, from}, :save_and_back_to_lobby, :voting, data) do
+    Planning.clear_readiness(data.id)
+
     case data.current_issue do
       nil ->
         {:keep_state, data, [{:reply, from, {:error, :no_current_issue}}]}
@@ -148,23 +158,33 @@ defmodule PlanningPoker.PlanningSession do
 
   def handle_event({:call, from}, :start_magic_estimation, :lobby, data) do
     # Create story point markers for the options
-    markers = data.options
-              |> Enum.filter(fn val -> val != "?" end)  # Exclude the "?" option
-              |> Enum.map(fn str -> {num, _} = Integer.parse(str); num end) # Convert to integers
-              |> Enum.sort() # Sort numerically
-              |> Enum.map(fn value ->
-                  %{
-                    "id" => "marker/#{value}",
-                    "type" => "marker",
-                    "value" => Integer.to_string(value),
-                    "title" => "#{value} Story Points"
-                  }
-                end)
+    markers =
+      data.options
+      # Exclude the "?" option
+      |> Enum.filter(fn val -> val != "?" end)
+      # Convert to integers
+      |> Enum.map(fn str ->
+        {num, _} = Integer.parse(str)
+        num
+      end)
+      # Sort numerically
+      |> Enum.sort()
+      |> Enum.map(fn value ->
+        %{
+          "id" => "marker/#{value}",
+          "type" => "marker",
+          "value" => Integer.to_string(value),
+          "title" => "#{value} Story Points"
+        }
+      end)
 
-    data = %{data |
-      unestimated_issues: data.issues ++ markers,
-      estimated_issues: []  # Add markers to the estimated column initially
+    data = %{
+      data
+      | unestimated_issues: data.issues ++ markers,
+        # Add markers to the estimated column initially
+        estimated_issues: []
     }
+
     broadcast_state_change(:magic_estimation, data)
     {:next_state, :magic_estimation, data, [{:reply, from, :ok}]}
   end
@@ -174,40 +194,49 @@ defmodule PlanningPoker.PlanningSession do
     {:next_state, :lobby, data, [{:reply, from, :ok}]}
   end
 
-  def handle_event({:call, from}, {:update_issue_position, issue_id, from_list, to_list, new_index}, :magic_estimation, data) do
-    {issue, source_list, target_list} = case {from_list, to_list} do
-      {"unestimated-issues", "estimated-issues"} ->
-        issue = Enum.find(data.unestimated_issues, fn issue -> issue["id"] == issue_id end)
-        {issue, :unestimated_issues, :estimated_issues}
+  def handle_event(
+        {:call, from},
+        {:update_issue_position, issue_id, from_list, to_list, new_index},
+        :magic_estimation,
+        data
+      ) do
+    {issue, source_list, target_list} =
+      case {from_list, to_list} do
+        {"unestimated-issues", "estimated-issues"} ->
+          issue = Enum.find(data.unestimated_issues, fn issue -> issue["id"] == issue_id end)
+          {issue, :unestimated_issues, :estimated_issues}
 
-      {"estimated-issues", "unestimated-issues"} ->
-        issue = Enum.find(data.estimated_issues, fn issue -> issue["id"] == issue_id end)
-        {issue, :estimated_issues, :unestimated_issues}
+        {"estimated-issues", "unestimated-issues"} ->
+          issue = Enum.find(data.estimated_issues, fn issue -> issue["id"] == issue_id end)
+          {issue, :estimated_issues, :unestimated_issues}
 
-      {"estimated-issues", "estimated-issues"} ->
-        issue = Enum.find(data.estimated_issues, fn issue -> issue["id"] == issue_id end)
-        {issue, :estimated_issues, :estimated_issues}
+        {"estimated-issues", "estimated-issues"} ->
+          issue = Enum.find(data.estimated_issues, fn issue -> issue["id"] == issue_id end)
+          {issue, :estimated_issues, :estimated_issues}
 
-      {"unestimated-issues", "unestimated-issues"} ->
-        issue = Enum.find(data.unestimated_issues, fn issue -> issue["id"] == issue_id end)
-        {issue, :unestimated_issues, :unestimated_issues}
-    end
+        {"unestimated-issues", "unestimated-issues"} ->
+          issue = Enum.find(data.unestimated_issues, fn issue -> issue["id"] == issue_id end)
+          {issue, :unestimated_issues, :unestimated_issues}
+      end
 
     # Remove the issue from the source list
-    updated_source = data[source_list]
-                    |> Enum.filter(fn i -> i["id"] != issue_id end)
+    updated_source =
+      data[source_list]
+      |> Enum.filter(fn i -> i["id"] != issue_id end)
 
     # Add the issue to the target list at the specified position
-    {before_items, after_items} = data[target_list]
-                                |> Enum.filter(fn i -> i["id"] != issue_id end)
-                                |> Enum.split(new_index)
+    {before_items, after_items} =
+      data[target_list]
+      |> Enum.filter(fn i -> i["id"] != issue_id end)
+      |> Enum.split(new_index)
 
     updated_target = before_items ++ [issue] ++ after_items
 
     # Update both lists in the state data
-    updated_data = data
-                  |> Map.put(source_list, updated_source)
-                  |> Map.put(target_list, updated_target)
+    updated_data =
+      data
+      |> Map.put(source_list, updated_source)
+      |> Map.put(target_list, updated_target)
 
     broadcast_state_change(:magic_estimation, updated_data)
     {:keep_state, updated_data, [{:reply, from, :ok}]}
@@ -296,7 +325,12 @@ defmodule PlanningPoker.PlanningSession do
     end
   end
 
-  def handle_event({:call, from}, {:update_section_content, section_id, content, user_id}, :voting, data) do
+  def handle_event(
+        {:call, from},
+        {:update_section_content, section_id, content, user_id},
+        :voting,
+        data
+      ) do
     case data.current_issue do
       nil ->
         {:keep_state, data, [{:reply, from, {:error, :no_current_issue}}]}
@@ -353,7 +387,8 @@ defmodule PlanningPoker.PlanningSession do
     end
   end
 
-  def handle_event({:call, from}, :save_and_back_to_lobby, _state, data) when not is_map_key(data, :current_issue) do
+  def handle_event({:call, from}, :save_and_back_to_lobby, _state, data)
+      when not is_map_key(data, :current_issue) do
     {:keep_state, data, [{:reply, from, {:error, :no_current_issue}}]}
   end
 
@@ -385,8 +420,12 @@ defmodule PlanningPoker.PlanningSession do
 
     new_data =
       case {data.current_issue, result} do
-        {nil, _} -> data
-        {_, nil} -> data
+        {nil, _} ->
+          data
+
+        {_, nil} ->
+          data
+
         {_, issue} ->
           # Parse description into editable sections
           sections = IssueSection.parse_into_sections(issue["description"])
@@ -441,6 +480,7 @@ defmodule PlanningPoker.PlanningSession do
         State: #{inspect(state)}
         Reason: #{inspect(reason)}
         """)
+
         new_data = data |> Map.delete(:fetch_issues_ref)
         broadcast_state_change(state, new_data)
         {:keep_state, new_data}
@@ -453,6 +493,7 @@ defmodule PlanningPoker.PlanningSession do
         State: #{inspect(state)}
         Reason: #{inspect(reason)}
         """)
+
         new_data = data |> Map.delete(:fetch_issue_ref)
         broadcast_state_change(state, new_data)
         {:keep_state, new_data}
@@ -465,6 +506,7 @@ defmodule PlanningPoker.PlanningSession do
         State: #{inspect(state)}
         Reason: #{inspect(reason)}
         """)
+
         new_data = data |> Map.delete(:update_issue_ref)
         broadcast_state_change(state, new_data)
         {:keep_state, new_data}
@@ -478,6 +520,7 @@ defmodule PlanningPoker.PlanningSession do
         Ref: #{inspect(ref)}
         Reason: #{inspect(reason)}
         """)
+
         {:keep_state, data}
     end
   end
@@ -485,12 +528,14 @@ defmodule PlanningPoker.PlanningSession do
   # Catch-all for unhandled info messages to prevent crashes
   def handle_event(:info, msg, state, data) do
     require Logger
+
     Logger.warning("""
     Unhandled info message in PlanningSession
     Session ID: #{inspect(data.id)}
     State: #{inspect(state)}
     Message: #{inspect(msg)}
     """)
+
     {:keep_state, data}
   end
 

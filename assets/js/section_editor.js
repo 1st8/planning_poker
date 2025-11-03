@@ -7,7 +7,9 @@
 
 export default {
   mounted() {
-    this.sectionId = this.el.dataset.sectionId || this.el.closest("[data-section-id]")?.dataset.sectionId;
+    this.sectionId =
+      this.el.dataset.sectionId ||
+      this.el.closest("[data-section-id]")?.dataset.sectionId;
     this.debounceTimer = null;
     this.debounceDelay = 300; // milliseconds
 
@@ -28,10 +30,7 @@ export default {
     this.el.addEventListener("keydown", this.handleKeydown.bind(this));
   },
 
-  updated() {
-    // Preserve cursor position during updates
-    // This prevents cursor jumping when content updates from other users
-  },
+  updated() {},
 
   destroyed() {
     // Clean up debounce timer
@@ -73,13 +72,13 @@ export default {
     if (this.componentTarget) {
       this.pushEventTo(this.componentTarget, "update_section_content", {
         section_id: this.sectionId,
-        content: content
+        content: content,
       });
     } else {
       // Fallback to parent LiveView if no target specified
       this.pushEvent("update_section_content", {
         section_id: this.sectionId,
-        content: content
+        content: content,
       });
     }
   },
@@ -87,5 +86,5 @@ export default {
   finishEditing() {
     // Trigger blur which will unlock the section
     this.el.blur();
-  }
+  },
 };
