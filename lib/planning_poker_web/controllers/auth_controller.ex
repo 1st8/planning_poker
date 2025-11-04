@@ -5,14 +5,18 @@ defmodule PlanningPokerWeb.AuthController do
 
   use PlanningPokerWeb, :controller
 
-  plug Ueberauth when action in [:callback]
+  plug Ueberauth when action in [:request, :callback]
 
-  # alias Ueberauth.Strategy.Helpers
   alias PlanningPoker.{UserFromAuth, IssueProvider}
 
-  # def request(conn, _params) do
-  #   render(conn, "request.html", callback_url: Helpers.callback_url(conn))
-  # end
+  @doc """
+  Initiates the OAuth request with the provider.
+  The Ueberauth plug handles the actual redirect to the OAuth provider.
+  """
+  def request(conn, _params) do
+    # Ueberauth plug will handle the redirect
+    conn
+  end
 
   @doc """
   Mock authentication for local development.
