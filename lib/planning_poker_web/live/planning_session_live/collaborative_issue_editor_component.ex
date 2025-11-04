@@ -8,10 +8,8 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
 
   @impl true
   def render(assigns) do
-    assigns = assign(assigns, :gitlab_site, System.get_env("GITLAB_SITE", "https://gitlab.com"))
-
     ~H"""
-    <div class="collaborative-editor prose prose-lg max-w-none" phx-hook="ProxyGitLabAssets" data-gitlab-site={@gitlab_site} id="collaborative-editor">
+    <div class="collaborative-editor prose prose-lg max-w-none" phx-hook="ProxyGitLabAssets" data-project-id={@issue["project_id"]} id="collaborative-editor">
       <div :if={@issue["sections"]} class="sections-container">
         <%= for {section, index} <- Enum.with_index(@issue["sections"]) do %>
           <% is_edited =
