@@ -213,7 +213,7 @@ defmodule PlanningPoker.IssueProviders.Mock do
       %{
         "id" => "mock-issue-1",
         "iid" => "1",
-        "project_id" => "25",
+        "projectId" => "25",
         "title" => "Add user profile page",
         "description" => """
         # User Profile Page

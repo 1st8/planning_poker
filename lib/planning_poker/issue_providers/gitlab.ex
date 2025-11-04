@@ -47,6 +47,7 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
         descriptionHtml
         referencePath: reference(full: true)
         webUrl
+        projectId
         epic {
           title
           reference: reference(full: true)
@@ -238,6 +239,7 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
     %{
       "id" => "gid://gitlab/Issue/#{issue["id"]}",
       "iid" => to_string(issue["iid"]),
+      "projectId" => issue["project_id"],
       "title" => issue["title"],
       "description" => issue["description"],
       "descriptionHtml" => issue["description_html"],
