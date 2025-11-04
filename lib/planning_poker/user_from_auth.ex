@@ -21,8 +21,15 @@ defmodule PlanningPoker.UserFromAuth do
   # Generate an initials-based avatar URL using ui-avatars.com
   # This service creates avatars with initials that work cross-domain
   defp generate_initials_avatar(name) do
-    encoded_name = URI.encode_www_form(name)
-    "https://ui-avatars.com/api/?name=#{encoded_name}&background=0D8ABC&color=fff&size=128"
+    # Extract initials: "Christoph Geschwind" -> "C G"
+    initials =
+      name
+      |> String.split(" ")
+      |> Enum.map(&String.first/1)
+      |> Enum.join(" ")
+      |> URI.encode_www_form()
+
+    "https://ui-avatars.com/api/?name=#{initials}&background=0D8ABC&color=fff&size=128"
   end
 
   defp name_from_auth(auth) do
