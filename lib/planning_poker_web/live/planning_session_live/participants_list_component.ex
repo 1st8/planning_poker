@@ -14,7 +14,12 @@ defmodule PlanningPokerWeb.PlanningSessionLive.ParticipantsListComponent do
                   <.icon name="hero-check-badge-solid" class="text-success absolute h-10 w-10" />
                 <% end %>
               </div>
-              <%= render_name(participant, @participants) %>
+              <div class="flex flex-col">
+                <span><%= render_name(participant, @participants) %></span>
+                <%= if participant[:readiness] do %>
+                  <small class="text-xs opacity-70"><%= render_readiness(participant[:readiness]) %></small>
+                <% end %>
+              </div>
             </li>
           <% end %>
         </ul>
@@ -38,6 +43,18 @@ defmodule PlanningPokerWeb.PlanningSessionLive.ParticipantsListComponent do
       "#{first_name} #{last_name_initial}."
     else
       first_name
+    end
+  end
+
+  # Helper function to render readiness status
+  defp render_readiness(value) do
+    case value do
+      "huh" -> "🤔 huh?"
+      "umm" -> "😕 umm..."
+      "okay" -> "🤷 okay I guess"
+      "clear" -> "👍 pretty clear"
+      "got_it" -> "🎯 10/10 got it"
+      _ -> ""
     end
   end
 end

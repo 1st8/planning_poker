@@ -1,7 +1,7 @@
 defmodule PlanningPoker.PlanningSession do
   @behaviour :gen_statem
 
-  alias PlanningPoker.{GitlabApi, Planning}
+  alias PlanningPoker.{IssueProvider, Planning, IssueSection}
 
   # lobby
   # voting
@@ -26,6 +26,16 @@ defmodule PlanningPoker.PlanningSession do
 
   @impl :gen_statem
   def init(%{id: id, token: token}) do
+    require Logger
+
+    Logger.info("""
+    PlanningSession STARTING
+    Session ID: #{inspect(id)}
+    Process PID: #{inspect(self())}
+    Parent PID: #{inspect(Process.get(:"$ancestors"))}
+    Links: #{inspect(Process.info(self(), :links))}
+    """)
+
     {:ok, :lobby,
      %{
        id: id,
@@ -43,6 +53,35 @@ defmodule PlanningPoker.PlanningSession do
 
   @impl :gen_statem
   def callback_mode, do: [:handle_event_function, :state_enter]
+
+  @impl :gen_statem
+  def terminate(reason, state, data) do
+    require Logger
+
+    log_level =
+      case reason do
+        {:shutdown, :closed} -> :warning
+        :normal -> :info
+        :shutdown -> :info
+        {:shutdown, _} -> :warning
+        _ -> :error
+      end
+
+    Logger.log(log_level, """
+    PlanningSession TERMINATED
+    Session ID: #{inspect(data.id)}
+    Process PID: #{inspect(self())}
+    State: #{inspect(state)}
+    Reason: #{inspect(reason)}
+    Links at termination: #{inspect(Process.info(self(), :links))}
+    Data keys: #{inspect(Map.keys(data))}
+    Has current_issue: #{inspect(Map.has_key?(data, :current_issue))}
+    Has fetch_issues_ref: #{inspect(Map.has_key?(data, :fetch_issues_ref))}
+    Has fetch_issue_ref: #{inspect(Map.has_key?(data, :fetch_issue_ref))}
+    """)
+
+    :ok
+  end
 
   @impl :gen_statem
   def handle_event(:enter, _event, :lobby, data) do
@@ -63,8 +102,11 @@ defmodule PlanningPoker.PlanningSession do
       |> Map.put(:current_issue, current_issue)
       |> fetch_current_issue
       |> Map.put(:voting_started_at, DateTime.utc_now())
-      |> Map.put(:most_recent_issue_id, (if MapSet.member?(data.opened_issue_ids, issue_id), do: nil, else: issue_id))
-      |> Map.put(:opened_issue_ids, MapSet.put(data.opened_issue_ids,issue_id))
+      |> Map.put(
+        :most_recent_issue_id,
+        if(MapSet.member?(data.opened_issue_ids, issue_id), do: nil, else: issue_id)
+      )
+      |> Map.put(:opened_issue_ids, MapSet.put(data.opened_issue_ids, issue_id))
 
     broadcast_state_change(:voting, data)
 
@@ -72,76 +114,155 @@ defmodule PlanningPoker.PlanningSession do
   end
 
   def handle_event({:call, from}, :finish_voting, :voting, data) do
+    Planning.clear_readiness(data.id)
+
     broadcast_state_change(:results, data)
     {:next_state, :results, data, [{:reply, from, :ok}]}
   end
+
   def handle_event({:call, from}, :back_to_lobby, :voting, data) do
+    Planning.clear_readiness(data.id)
+
     broadcast_state_change(:lobby, data)
     {:next_state, :lobby, data, [{:reply, from, :ok}]}
   end
 
+  def handle_event({:call, from}, :save_and_back_to_lobby, :voting, data) do
+    Planning.clear_readiness(data.id)
+
+    case data.current_issue do
+      nil ->
+        {:keep_state, data, [{:reply, from, {:error, :no_current_issue}}]}
+
+      issue ->
+        # Check if issue has modifications
+        has_modifications = IssueSection.has_modifications?(issue["sections"] || [])
+
+        if has_modifications do
+          # TODO: Potential race condition - concurrent edits can occur during save operation.
+          # Consider adding a "saving" state or locking all sections during save to prevent
+          # modifications while the async update is in progress.
+          # See: https://github.com/1st8/planning_poker/issues/XX
+
+          # Start async update task
+          new_data = update_current_issue(data)
+          broadcast_state_change(:voting, new_data)
+          {:keep_state, new_data, [{:reply, from, :ok}]}
+        else
+          # No modifications, just go back to lobby
+          broadcast_state_change(:lobby, data)
+          {:next_state, :lobby, data, [{:reply, from, :ok}]}
+        end
+    end
+  end
+
   def handle_event({:call, from}, :start_magic_estimation, :lobby, data) do
     # Create story point markers for the options
-    markers = data.options
-              |> Enum.filter(fn val -> val != "?" end)  # Exclude the "?" option
-              |> Enum.map(fn str -> {num, _} = Integer.parse(str); num end) # Convert to integers
-              |> Enum.sort() # Sort numerically
-              |> Enum.map(fn value ->
-                  %{
-                    "id" => "marker/#{value}",
-                    "type" => "marker",
-                    "value" => Integer.to_string(value),
-                    "title" => "#{value} Story Points"
-                  }
-                end)
+    markers =
+      data.options
+      # Exclude the "?" option
+      |> Enum.filter(fn val -> val != "?" end)
+      # Convert to integers
+      |> Enum.map(fn str ->
+        {num, _} = Integer.parse(str)
+        num
+      end)
+      # Sort numerically
+      |> Enum.sort()
+      |> Enum.map(fn value ->
+        %{
+          "id" => "marker/#{value}",
+          "type" => "marker",
+          "value" => Integer.to_string(value),
+          "title" => "#{value} Story Points"
+        }
+      end)
 
-    data = %{data |
-      unestimated_issues: data.issues ++ markers,
-      estimated_issues: []  # Add markers to the estimated column initially
+    data = %{
+      data
+      | unestimated_issues: data.issues ++ markers,
+        # Add markers to the estimated column initially
+        estimated_issues: []
     }
+
     broadcast_state_change(:magic_estimation, data)
     {:next_state, :magic_estimation, data, [{:reply, from, :ok}]}
   end
 
   def handle_event({:call, from}, :complete_estimation, :magic_estimation, data) do
-    broadcast_state_change(:lobby, data)
-    {:next_state, :lobby, data, [{:reply, from, :ok}]}
+    require Logger
+
+    # Calculate weights from the estimated issues positions
+    weight_map = calculate_weights_from_positions(data.estimated_issues)
+
+    Logger.info("""
+    Complete estimation called
+    Estimated issues count: #{length(data.estimated_issues)}
+    Weight map: #{inspect(weight_map)}
+    Weight map size: #{map_size(weight_map)}
+    """)
+
+    # If there are no weights to update, just transition to lobby
+    if map_size(weight_map) == 0 do
+      Logger.info("No weights to update, transitioning to lobby")
+      broadcast_state_change(:lobby, data)
+      {:next_state, :lobby, data, [{:reply, from, :ok}]}
+    else
+      Logger.info("Starting weight updates for #{map_size(weight_map)} issues")
+      # Start async weight updates
+      new_data = update_issue_weights(data, weight_map)
+
+      # Broadcast the updating state with progress
+      broadcast_state_change(:magic_estimation, new_data)
+
+      # Stay in magic_estimation state until updates complete
+      {:keep_state, new_data, [{:reply, from, :ok}]}
+    end
   end
 
-  def handle_event({:call, from}, {:update_issue_position, issue_id, from_list, to_list, new_index}, :magic_estimation, data) do
-    {issue, source_list, target_list} = case {from_list, to_list} do
-      {"unestimated-issues", "estimated-issues"} ->
-        issue = Enum.find(data.unestimated_issues, fn issue -> issue["id"] == issue_id end)
-        {issue, :unestimated_issues, :estimated_issues}
+  def handle_event(
+        {:call, from},
+        {:update_issue_position, issue_id, from_list, to_list, new_index},
+        :magic_estimation,
+        data
+      ) do
+    {issue, source_list, target_list} =
+      case {from_list, to_list} do
+        {"unestimated-issues", "estimated-issues"} ->
+          issue = Enum.find(data.unestimated_issues, fn issue -> issue["id"] == issue_id end)
+          {issue, :unestimated_issues, :estimated_issues}
 
-      {"estimated-issues", "unestimated-issues"} ->
-        issue = Enum.find(data.estimated_issues, fn issue -> issue["id"] == issue_id end)
-        {issue, :estimated_issues, :unestimated_issues}
+        {"estimated-issues", "unestimated-issues"} ->
+          issue = Enum.find(data.estimated_issues, fn issue -> issue["id"] == issue_id end)
+          {issue, :estimated_issues, :unestimated_issues}
 
-      {"estimated-issues", "estimated-issues"} ->
-        issue = Enum.find(data.estimated_issues, fn issue -> issue["id"] == issue_id end)
-        {issue, :estimated_issues, :estimated_issues}
+        {"estimated-issues", "estimated-issues"} ->
+          issue = Enum.find(data.estimated_issues, fn issue -> issue["id"] == issue_id end)
+          {issue, :estimated_issues, :estimated_issues}
 
-      {"unestimated-issues", "unestimated-issues"} ->
-        issue = Enum.find(data.unestimated_issues, fn issue -> issue["id"] == issue_id end)
-        {issue, :unestimated_issues, :unestimated_issues}
-    end
+        {"unestimated-issues", "unestimated-issues"} ->
+          issue = Enum.find(data.unestimated_issues, fn issue -> issue["id"] == issue_id end)
+          {issue, :unestimated_issues, :unestimated_issues}
+      end
 
     # Remove the issue from the source list
-    updated_source = data[source_list]
-                    |> Enum.filter(fn i -> i["id"] != issue_id end)
+    updated_source =
+      data[source_list]
+      |> Enum.filter(fn i -> i["id"] != issue_id end)
 
     # Add the issue to the target list at the specified position
-    {before_items, after_items} = data[target_list]
-                                |> Enum.filter(fn i -> i["id"] != issue_id end)
-                                |> Enum.split(new_index)
+    {before_items, after_items} =
+      data[target_list]
+      |> Enum.filter(fn i -> i["id"] != issue_id end)
+      |> Enum.split(new_index)
 
     updated_target = before_items ++ [issue] ++ after_items
 
     # Update both lists in the state data
-    updated_data = data
-                  |> Map.put(source_list, updated_source)
-                  |> Map.put(target_list, updated_target)
+    updated_data =
+      data
+      |> Map.put(source_list, updated_source)
+      |> Map.put(target_list, updated_target)
 
     broadcast_state_change(:magic_estimation, updated_data)
     {:keep_state, updated_data, [{:reply, from, :ok}]}
@@ -172,6 +293,131 @@ defmodule PlanningPoker.PlanningSession do
     {:keep_state, data, [{:reply, from, :ok}]}
   end
 
+  # Section editing events (available in voting state)
+  def handle_event({:call, from}, {:lock_section, section_id, user_id}, :voting, data) do
+    case data.current_issue do
+      nil ->
+        {:keep_state, data, [{:reply, from, {:error, :no_current_issue}}]}
+
+      issue ->
+        case IssueSection.lock_section(issue["sections"], section_id, user_id) do
+          {:ok, updated_sections} ->
+            updated_issue = Map.put(issue, "sections", updated_sections)
+            new_data = Map.put(data, :current_issue, updated_issue)
+            broadcast_state_change(:voting, new_data)
+            {:keep_state, new_data, [{:reply, from, :ok}]}
+
+          {:error, reason} ->
+            {:keep_state, data, [{:reply, from, {:error, reason}}]}
+        end
+    end
+  end
+
+  def handle_event({:call, from}, {:unlock_section, section_id, user_id}, :voting, data) do
+    case data.current_issue do
+      nil ->
+        {:keep_state, data, [{:reply, from, {:error, :no_current_issue}}]}
+
+      issue ->
+        case IssueSection.unlock_section(issue["sections"], section_id, user_id) do
+          {:ok, updated_sections} ->
+            updated_issue = Map.put(issue, "sections", updated_sections)
+            new_data = Map.put(data, :current_issue, updated_issue)
+            broadcast_state_change(:voting, new_data)
+            {:keep_state, new_data, [{:reply, from, :ok}]}
+
+          {:error, reason} ->
+            {:keep_state, data, [{:reply, from, {:error, reason}}]}
+        end
+    end
+  end
+
+  def handle_event({:call, from}, {:cancel_section_edit, section_id, user_id}, :voting, data) do
+    case data.current_issue do
+      nil ->
+        {:keep_state, data, [{:reply, from, {:error, :no_current_issue}}]}
+
+      issue ->
+        case IssueSection.cancel_section_edit(issue["sections"], section_id, user_id) do
+          {:ok, updated_sections} ->
+            updated_issue = Map.put(issue, "sections", updated_sections)
+            new_data = Map.put(data, :current_issue, updated_issue)
+            broadcast_state_change(:voting, new_data)
+            {:keep_state, new_data, [{:reply, from, :ok}]}
+
+          {:error, reason} ->
+            {:keep_state, data, [{:reply, from, {:error, reason}}]}
+        end
+    end
+  end
+
+  def handle_event(
+        {:call, from},
+        {:update_section_content, section_id, content, user_id},
+        :voting,
+        data
+      ) do
+    case data.current_issue do
+      nil ->
+        {:keep_state, data, [{:reply, from, {:error, :no_current_issue}}]}
+
+      issue ->
+        case IssueSection.update_section_content(issue["sections"], section_id, content, user_id) do
+          {:ok, updated_sections} ->
+            updated_issue = Map.put(issue, "sections", updated_sections)
+            new_data = Map.put(data, :current_issue, updated_issue)
+            broadcast_state_change(:voting, new_data)
+            {:keep_state, new_data, [{:reply, from, :ok}]}
+
+          {:error, reason} ->
+            {:keep_state, data, [{:reply, from, {:error, reason}}]}
+        end
+    end
+  end
+
+  def handle_event({:call, from}, {:delete_section, section_id, user_id}, :voting, data) do
+    case data.current_issue do
+      nil ->
+        {:keep_state, data, [{:reply, from, {:error, :no_current_issue}}]}
+
+      issue ->
+        case IssueSection.mark_section_deleted(issue["sections"], section_id, user_id) do
+          {:ok, updated_sections} ->
+            updated_issue = Map.put(issue, "sections", updated_sections)
+            new_data = Map.put(data, :current_issue, updated_issue)
+            broadcast_state_change(:voting, new_data)
+            {:keep_state, new_data, [{:reply, from, :ok}]}
+
+          {:error, reason} ->
+            {:keep_state, data, [{:reply, from, {:error, reason}}]}
+        end
+    end
+  end
+
+  def handle_event({:call, from}, {:restore_section, section_id}, :voting, data) do
+    case data.current_issue do
+      nil ->
+        {:keep_state, data, [{:reply, from, {:error, :no_current_issue}}]}
+
+      issue ->
+        case IssueSection.restore_section(issue["sections"], section_id) do
+          {:ok, updated_sections} ->
+            updated_issue = Map.put(issue, "sections", updated_sections)
+            new_data = Map.put(data, :current_issue, updated_issue)
+            broadcast_state_change(:voting, new_data)
+            {:keep_state, new_data, [{:reply, from, :ok}]}
+
+          {:error, reason} ->
+            {:keep_state, data, [{:reply, from, {:error, reason}}]}
+        end
+    end
+  end
+
+  def handle_event({:call, from}, :save_and_back_to_lobby, _state, data)
+      when not is_map_key(data, :current_issue) do
+    {:keep_state, data, [{:reply, from, {:error, :no_current_issue}}]}
+  end
+
   def handle_event({:call, from}, _event, _content, data) do
     {:keep_state, data, [{:reply, from, {:error, "invalid transition"}}]}
   end
@@ -199,9 +445,18 @@ defmodule PlanningPoker.PlanningSession do
     Process.demonitor(fetch_issue_ref, [:flush])
 
     new_data =
-      case data.current_issue do
-        nil -> data
-        _ -> data |> Map.put(:current_issue, result)
+      case {data.current_issue, result} do
+        {nil, _} ->
+          data
+
+        {_, nil} ->
+          data
+
+        {_, issue} ->
+          # Parse description into editable sections
+          sections = IssueSection.parse_into_sections(issue["description"])
+          updated_issue = Map.put(issue, "sections", sections)
+          data |> Map.put(:current_issue, updated_issue)
       end
       |> Map.delete(:fetch_issue_ref)
 
@@ -210,16 +465,242 @@ defmodule PlanningPoker.PlanningSession do
     {:keep_state, new_data}
   end
 
+  def handle_event(
+        :info,
+        {update_issue_ref, result},
+        :voting,
+        %{update_issue_ref: update_issue_ref} = data
+      ) do
+    Process.demonitor(update_issue_ref, [:flush])
+
+    new_data = data |> Map.delete(:update_issue_ref)
+
+    case result do
+      {:ok, updated_issue} ->
+        # Parse description into editable sections with original_content set
+        sections = IssueSection.parse_into_sections(updated_issue["description"])
+        refreshed_issue = Map.put(updated_issue, "sections", sections)
+        final_data = Map.put(new_data, :current_issue, refreshed_issue)
+
+        # Transition to lobby after successful save
+        broadcast_state_change(:lobby, final_data)
+        {:next_state, :lobby, final_data}
+
+      {:error, _reason} ->
+        # Stay in voting state on error, broadcast the error state
+        broadcast_state_change(:voting, new_data)
+        {:keep_state, new_data}
+    end
+  end
+
+  # Handle weight update task completion
+  def handle_event(
+        :info,
+        {task_ref, {issue_id, result}},
+        :magic_estimation,
+        %{weight_update_tasks: tasks} = data
+      ) do
+    # Check if this is one of our weight update tasks
+    if task_ref in tasks do
+      Process.demonitor(task_ref, [:flush])
+
+      # Update progress
+      completed = data.weight_update_completed + 1
+      total = data.weight_update_total
+
+      # Track failures
+      failures =
+        case result do
+          {:ok, _} -> data.weight_update_failures
+          {:error, reason} -> [{issue_id, reason} | data.weight_update_failures]
+        end
+
+      new_data =
+        data
+        |> Map.put(:weight_update_completed, completed)
+        |> Map.put(:weight_update_failures, failures)
+
+      # Check if all tasks are complete
+      if completed >= total do
+        # All tasks done, clean up and transition to lobby
+        final_data =
+          new_data
+          |> Map.delete(:weight_update_tasks)
+          |> Map.delete(:weight_update_total)
+          |> Map.delete(:weight_update_completed)
+          |> Map.delete(:weight_update_failures)
+
+        # Broadcast the failures if any
+        if length(failures) > 0 do
+          Phoenix.PubSub.broadcast(
+            PlanningPoker.PubSub,
+            Planning.planning_session_topic(data.id),
+            {:weight_update_errors, failures}
+          )
+        end
+
+        broadcast_state_change(:lobby, final_data)
+        {:next_state, :lobby, final_data}
+      else
+        # Still waiting for more tasks, broadcast progress
+        broadcast_state_change(:magic_estimation, new_data)
+        {:keep_state, new_data}
+      end
+    else
+      # Not a weight update task, ignore
+      {:keep_state, data}
+    end
+  end
+
+  # Handle task crashes/failures (from async_nolink tasks)
+  def handle_event(:info, {:DOWN, ref, :process, _pid, reason}, state, data) do
+    require Logger
+
+    cond do
+      # fetch_issues task failed
+      Map.get(data, :fetch_issues_ref) == ref ->
+        Logger.error("""
+        fetch_issues task failed in PlanningSession
+        Session ID: #{inspect(data.id)}
+        State: #{inspect(state)}
+        Reason: #{inspect(reason)}
+        """)
+
+        new_data = data |> Map.delete(:fetch_issues_ref)
+        broadcast_state_change(state, new_data)
+        {:keep_state, new_data}
+
+      # fetch_issue task failed
+      Map.get(data, :fetch_issue_ref) == ref ->
+        Logger.error("""
+        fetch_issue task failed in PlanningSession
+        Session ID: #{inspect(data.id)}
+        State: #{inspect(state)}
+        Reason: #{inspect(reason)}
+        """)
+
+        new_data = data |> Map.delete(:fetch_issue_ref)
+        broadcast_state_change(state, new_data)
+        {:keep_state, new_data}
+
+      # update_issue task failed
+      Map.get(data, :update_issue_ref) == ref ->
+        Logger.error("""
+        update_issue task failed in PlanningSession
+        Session ID: #{inspect(data.id)}
+        State: #{inspect(state)}
+        Reason: #{inspect(reason)}
+        """)
+
+        new_data = data |> Map.delete(:update_issue_ref)
+        broadcast_state_change(state, new_data)
+        {:keep_state, new_data}
+
+      # weight_update task failed
+      ref in Map.get(data, :weight_update_tasks, []) ->
+        Logger.error("""
+        weight_update task failed in PlanningSession
+        Session ID: #{inspect(data.id)}
+        State: #{inspect(state)}
+        Reason: #{inspect(reason)}
+        """)
+
+        # Treat this as a failed update
+        completed = data.weight_update_completed + 1
+        total = data.weight_update_total
+
+        # Add to failures (we don't have issue_id here, so use ref)
+        failures = [{ref, reason} | data.weight_update_failures]
+
+        new_data =
+          data
+          |> Map.put(:weight_update_completed, completed)
+          |> Map.put(:weight_update_failures, failures)
+
+        # Check if all tasks are complete
+        if completed >= total do
+          # All tasks done, clean up and transition to lobby
+          final_data =
+            new_data
+            |> Map.delete(:weight_update_tasks)
+            |> Map.delete(:weight_update_total)
+            |> Map.delete(:weight_update_completed)
+            |> Map.delete(:weight_update_failures)
+
+          # Broadcast the failures
+          Phoenix.PubSub.broadcast(
+            PlanningPoker.PubSub,
+            Planning.planning_session_topic(data.id),
+            {:weight_update_errors, failures}
+          )
+
+          broadcast_state_change(:lobby, final_data)
+          {:next_state, :lobby, final_data}
+        else
+          # Still waiting for more tasks, broadcast progress
+          broadcast_state_change(state, new_data)
+          {:keep_state, new_data}
+        end
+
+      # Unknown DOWN message
+      true ->
+        Logger.warning("""
+        Unknown DOWN message in PlanningSession
+        Session ID: #{inspect(data.id)}
+        State: #{inspect(state)}
+        Ref: #{inspect(ref)}
+        Reason: #{inspect(reason)}
+        """)
+
+        {:keep_state, data}
+    end
+  end
+
+  # Catch-all for unhandled info messages to prevent crashes
+  def handle_event(:info, msg, state, data) do
+    require Logger
+
+    Logger.warning("""
+    Unhandled info message in PlanningSession
+    Session ID: #{inspect(data.id)}
+    State: #{inspect(state)}
+    Message: #{inspect(msg)}
+    """)
+
+    {:keep_state, data}
+  end
+
   defp to_payload(state, data) do
+    issue_modified =
+      case data[:current_issue] do
+        nil -> false
+        issue -> IssueSection.has_modifications?(issue["sections"] || [])
+      end
+
     data
-    |> Map.drop([:token, :fetch_issues_ref, :fetch_issue_ref])
+    |> Map.drop([
+      :token,
+      :fetch_issues_ref,
+      :fetch_issue_ref,
+      :update_issue_ref,
+      :weight_update_tasks,
+      :weight_update_failures
+    ])
     |> Map.merge(%{
       state: state,
       fetching: Map.has_key?(data, :fetch_issues_ref),
+      issue_modified: issue_modified,
+      updating_weights: Map.has_key?(data, :weight_update_tasks),
       current_issue:
         case data[:current_issue] do
-          nil -> nil
-          issue -> Map.merge(issue, %{fetching: Map.has_key?(issue, :fetch_issue_ref)})
+          nil ->
+            nil
+
+          issue ->
+            Map.merge(issue, %{
+              fetching: Map.has_key?(data, :fetch_issue_ref),
+              saving: Map.has_key?(data, :update_issue_ref)
+            })
         end
     })
   end
@@ -235,7 +716,12 @@ defmodule PlanningPoker.PlanningSession do
   defp fetch_issues(data) do
     task =
       Task.Supervisor.async_nolink(PlanningPoker.TaskSupervisor, fn ->
-        GitlabApi.fetch_issues(GitlabApi.default_client(token: data.token))
+        client = IssueProvider.client(token: data.token)
+
+        case IssueProvider.fetch_issues(client) do
+          {:ok, issues} -> issues
+          {:error, _reason} -> []
+        end
       end)
 
     Map.put(data, :fetch_issues_ref, task.ref)
@@ -244,9 +730,131 @@ defmodule PlanningPoker.PlanningSession do
   defp fetch_current_issue(data) do
     task =
       Task.Supervisor.async_nolink(PlanningPoker.TaskSupervisor, fn ->
-        GitlabApi.fetch_issue(GitlabApi.default_client(token: data.token), data.current_issue["id"])
+        client = IssueProvider.client(token: data.token)
+
+        case IssueProvider.fetch_issue(client, data.current_issue["id"]) do
+          {:ok, issue} -> issue
+          {:error, _reason} -> nil
+        end
       end)
 
     Map.put(data, :fetch_issue_ref, task.ref)
+  end
+
+  defp update_current_issue(data) do
+    issue = data.current_issue
+    sections = issue["sections"] || []
+
+    # Convert sections back to markdown
+    updated_description = IssueSection.sections_to_markdown(sections)
+
+    # Extract project_id and issue_iid from the issue
+    {project_id, issue_iid} = extract_issue_identifiers(issue)
+
+    task =
+      Task.Supervisor.async_nolink(PlanningPoker.TaskSupervisor, fn ->
+        client = IssueProvider.client(token: data.token)
+
+        IssueProvider.update_issue(client, project_id, issue_iid, %{
+          description: updated_description
+        })
+      end)
+
+    Map.put(data, :update_issue_ref, task.ref)
+  end
+
+  defp extract_issue_identifiers(issue) do
+    # For GitLab: extract from referencePath (e.g., "1st8/planning_poker#42")
+    # For Mock: use a dummy project_id and the iid field
+    reference_path = issue["referencePath"]
+
+    if reference_path && String.contains?(reference_path, "#") do
+      [project_path, iid] = String.split(reference_path, "#", parts: 2)
+      {project_path, iid}
+    else
+      # Fallback for mock or issues without proper reference path
+      {"mock-project", issue["iid"]}
+    end
+  end
+
+  defp calculate_weights_from_positions(estimated_issues) do
+    # Iterate through the estimated issues list and assign weights based on marker positions
+    # Issues before the first marker are left unweighted (nil)
+    # Issues after a marker get that marker's weight value
+    {weight_map, _current_weight} =
+      Enum.reduce(estimated_issues, {%{}, nil}, fn item, {weights, current_weight} ->
+        case item do
+          # When we hit a marker, update the current weight
+          %{"type" => "marker", "value" => value} ->
+            {weight, _} = Integer.parse(value)
+            {weights, weight}
+
+          # When we hit an issue, assign the current weight (if we've passed a marker)
+          %{"id" => issue_id} ->
+            if current_weight do
+              {Map.put(weights, issue_id, current_weight), current_weight}
+            else
+              # Issue is before the first marker, don't assign a weight
+              {weights, current_weight}
+            end
+
+          # Unknown item type, skip it
+          _ ->
+            {weights, current_weight}
+        end
+      end)
+
+    weight_map
+  end
+
+  defp update_issue_weights(data, weight_map) do
+    require Logger
+
+    # Find the full issue objects for the issues we need to update
+    issues_to_update =
+      data.issues
+      |> Enum.filter(fn issue -> Map.has_key?(weight_map, issue["id"]) end)
+
+    Logger.info("""
+    Preparing weight updates
+    Issues to update: #{length(issues_to_update)}
+    Issue details: #{inspect(Enum.map(issues_to_update, fn i -> {i["id"], i["iid"], i["title"]} end))}
+    """)
+
+    # Create async tasks for each issue update
+    tasks =
+      Enum.map(issues_to_update, fn issue ->
+        weight = Map.get(weight_map, issue["id"])
+        {project_id, issue_iid} = extract_issue_identifiers(issue)
+
+        Logger.info("Creating update task for issue ##{issue_iid} (#{issue["title"]}) with weight=#{weight}")
+
+        task =
+          Task.Supervisor.async_nolink(PlanningPoker.TaskSupervisor, fn ->
+            Logger.info("Executing update for issue ##{issue_iid} with weight=#{weight}")
+            client = IssueProvider.client(token: data.token)
+
+            result =
+              IssueProvider.update_issue(client, project_id, issue_iid, %{
+                weight: weight
+              })
+
+            Logger.info("Update result for issue ##{issue_iid}: #{inspect(result)}")
+
+            # Return the issue_id along with the result for tracking
+            {issue["id"], result}
+          end)
+
+        task.ref
+      end)
+
+    Logger.info("Created #{length(tasks)} update tasks")
+
+    # Store weight update state in data
+    data
+    |> Map.put(:weight_update_tasks, tasks)
+    |> Map.put(:weight_update_total, length(tasks))
+    |> Map.put(:weight_update_completed, 0)
+    |> Map.put(:weight_update_failures, [])
   end
 end
