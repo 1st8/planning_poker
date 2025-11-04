@@ -213,11 +213,14 @@ defmodule PlanningPoker.IssueProviders.Mock do
       %{
         "id" => "mock-issue-1",
         "iid" => "1",
+        "project_id" => "25",
         "title" => "Add user profile page",
         "description" => """
         # User Profile Page
 
         Users should be able to view and edit their profile information.
+
+        ![Profile mockup](/uploads/467af08891cb18bb726bcc3b1d4c098e/225434.jpg)
 
         ## Requirements
         - Display user name, email, avatar

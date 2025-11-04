@@ -23,6 +23,8 @@ export default {
   rewriteGitLabUrls() {
     // Get project ID from data attribute
     const projectId = this.el.dataset.projectId;
+    console.log("[ProxyGitLabAssets] Project ID:", projectId);
+
     if (!projectId) {
       console.warn("ProxyGitLabAssets hook: data-project-id attribute not found");
       return;
@@ -31,16 +33,21 @@ export default {
     // Find all images and videos with GitLab upload URLs
     // Pattern: /uploads/:hash/:filename (from our markdown renderer)
     const assets = this.el.querySelectorAll('img[src^="/uploads/"], video[src^="/uploads/"]');
+    console.log("[ProxyGitLabAssets] Found assets:", assets.length);
 
     assets.forEach(asset => {
       const originalSrc = asset.getAttribute('src');
+      console.log("[ProxyGitLabAssets] Processing:", originalSrc);
 
       // Check if already proxied to avoid double-rewriting
       if (!originalSrc.startsWith("/proxy/")) {
         // Pattern: /uploads/467af08891cb18bb726bcc3b1d4c098e/225434.jpg
         // Rewrite to: /proxy/project/25/uploads/467af08891cb18bb726bcc3b1d4c098e/225434.jpg
         const proxiedSrc = `/proxy/project/${projectId}${originalSrc}`;
+        console.log("[ProxyGitLabAssets] Rewriting to:", proxiedSrc);
         asset.src = proxiedSrc;
+      } else {
+        console.log("[ProxyGitLabAssets] Already proxied, skipping");
       }
     });
   }
