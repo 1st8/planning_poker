@@ -13,32 +13,21 @@ defmodule PlanningPoker.UserFromAuth do
     {:ok, basic_info(auth)}
   end
 
-  defp basic_info(auth) do
-    name = name_from_auth(auth)
-    email = auth.info.email || "#{auth.uid}@example.com"
-    %{id: auth.uid, name: name, avatar: generate_gravatar_url(email, name)}
+  # github does it this way
+  defp avatar_from_auth(%{info: %{urls: %{avatar_url: image}}}), do: image
+
+  # facebook does it this way
+  defp avatar_from_auth(%{info: %{image: image}}), do: image
+
+  # default case if nothing matches
+  defp avatar_from_auth(auth) do
+    Logger.warning("#{auth.provider} needs to find an avatar URL!")
+    Logger.debug(Jason.encode!(auth))
+    nil
   end
 
-  # Generate a Gravatar URL using SHA256 hash of email
-  # Falls back to initials-based generation if no Gravatar is found
-  defp generate_gravatar_url(email, name) do
-    # SHA256 hash the email
-    email_hash =
-      email
-      |> String.downcase()
-      |> String.trim()
-      |> then(&:crypto.hash(:sha256, &1))
-      |> Base.encode16(case: :lower)
-
-    # Extract initials for fallback: "Christoph Geschwind" -> "C+G"
-    initials =
-      name
-      |> String.split(" ")
-      |> Enum.map(&String.first/1)
-      |> Enum.join("+")
-      |> URI.encode_www_form()
-
-    "https://gravatar.com/avatar/#{email_hash}?d=initials&name=#{initials}"
+  defp basic_info(auth) do
+    %{id: auth.uid, name: name_from_auth(auth), avatar: avatar_from_auth(auth)}
   end
 
   defp name_from_auth(auth) do
