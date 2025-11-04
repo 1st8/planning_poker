@@ -4,7 +4,7 @@ defmodule PlanningPoker.MixProject do
   def project do
     [
       app: :planning_poker,
-      version: "0.6.5",
+      version: "0.6.6",
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
