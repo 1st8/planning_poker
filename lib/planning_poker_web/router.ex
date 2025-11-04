@@ -17,6 +17,10 @@ defmodule PlanningPokerWeb.Router do
   scope "/auth", PlanningPokerWeb do
     pipe_through :browser
 
+    # Mock authentication for local development
+    get "/mock/:username", AuthController, :mock_callback
+
+    # OAuth provider routes (GitLab, etc.)
     get "/:provider", AuthController, :request
     get "/:provider/callback", AuthController, :callback
     post "/:provider/callback", AuthController, :callback

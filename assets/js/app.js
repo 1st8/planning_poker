@@ -26,13 +26,15 @@ import topbar from "../vendor/topbar"
 import LazyImages from "./LazyImages";
 import SortableIssues from "./sortable_issues";
 import LongPressButton from "./long_press_button";
+import SectionEditor from "./section_editor";
+import PersonalIssueNotes from "./personal_issue_notes";
 import "./kill_button_toggle.js"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: { LazyImages, SortableIssues, LongPressButton }
+  hooks: { LazyImages, SortableIssues, LongPressButton, SectionEditor, PersonalIssueNotes }
 })
 
 // Show progress bar on live navigation and form submits

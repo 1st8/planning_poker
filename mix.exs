@@ -26,6 +26,7 @@ defmodule PlanningPoker.MixProject do
 
   # Specifies which paths to compile per environment.
   defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(:e2e), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
   # Specifies your project dependencies.
@@ -62,7 +63,9 @@ defmodule PlanningPoker.MixProject do
       {:elixir_uuid, "~> 1.2"},
       {:ueberauth, "~> 0.7.0"},
       {:ueberauth_gitlab_strategy, "~> 0.4.0"},
-      {:igniter, "~> 0.6.30"}
+      {:igniter, "~> 0.6.30"},
+      {:earmark, "~> 1.4"},
+      {:html_sanitize_ex, "~> 1.4"}
     ]
   end
 
@@ -82,7 +85,11 @@ defmodule PlanningPoker.MixProject do
         "esbuild planning_poker --minify",
         "phx.digest"
       ],
-      precommit: ["compile --warning-as-errors", "deps.unlock --unused", "format", "test"]
+      precommit: ["compile --warning-as-errors", "deps.unlock --unused", "format", "test"],
+      e2e: ["cmd npm run e2e:test"],
+      "e2e.ui": ["cmd npm run e2e:ui"],
+      "e2e.headed": ["cmd npm run e2e:headed"],
+      "e2e.debug": ["cmd npm run e2e:debug"]
     ]
   end
 end

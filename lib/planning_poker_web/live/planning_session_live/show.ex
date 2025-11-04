@@ -24,7 +24,8 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
      |> assign(:planning_session, Planning.get_planning_session!(id))
      |> assign_title()
      |> assign(:participants, Planning.get_participants!(id))
-     |> assign(:current_participant, participant)}
+     |> assign(:current_participant, participant)
+     |> assign(:personal_notes, %{})}
   end
 
   def mount(_params, _session, socket) do
@@ -67,8 +68,26 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     {:noreply, socket}
   end
 
+  def handle_event("set_readiness", %{"value" => value}, socket) do
+    Planning.set_readiness(
+      socket.assigns.planning_session.id,
+      socket.assigns.current_participant,
+      value
+    )
+
+    {:noreply, socket}
+  end
+
+  def handle_event("sync_notes", %{"notes" => notes}, socket) do
+    {:noreply, assign(socket, :personal_notes, notes)}
+  end
+
   def handle_event("change_mode", _value, socket) do
-    new_mode = if socket.assigns.planning_session.mode == :magic_estimation, do: :planning_poker, else: :magic_estimation
+    new_mode =
+      if socket.assigns.planning_session.mode == :magic_estimation,
+        do: :planning_poker,
+        else: :magic_estimation
+
     :ok = Planning.change_mode(socket.assigns.planning_session.id, new_mode)
     {:noreply, socket}
   end
@@ -78,8 +97,20 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     {:noreply, socket}
   end
 
-  def handle_event("issue_moved", %{"issue_id" => issue_id, "from" => from, "to" => to, "new_index" => new_index}, socket) do
-    :ok = Planning.update_issue_position(socket.assigns.planning_session.id, issue_id, from, to, new_index)
+  def handle_event(
+        "issue_moved",
+        %{"issue_id" => issue_id, "from" => from, "to" => to, "new_index" => new_index},
+        socket
+      ) do
+    :ok =
+      Planning.update_issue_position(
+        socket.assigns.planning_session.id,
+        issue_id,
+        from,
+        to,
+        new_index
+      )
+
     {:noreply, socket}
   end
 
@@ -93,6 +124,16 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     {:noreply, socket}
   end
 
+  def handle_event("save_and_back_to_lobby", _value, socket) do
+    case Planning.save_and_back_to_lobby(socket.assigns.planning_session.id) do
+      :ok ->
+        {:noreply, socket}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Failed to save issue: #{inspect(reason)}")}
+    end
+  end
+
   @impl true
   def handle_info({:state_change, new_planning_session}, socket) do
     socket =
@@ -101,6 +142,20 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
       |> assign_title()
 
     {:noreply, socket}
+  end
+
+  def handle_info({:weight_update_errors, failures}, socket) do
+    # Show error flash for failed weight updates
+    error_count = length(failures)
+
+    error_msg =
+      if error_count == 1 do
+        "Failed to update 1 issue weight"
+      else
+        "Failed to update #{error_count} issue weights"
+      end
+
+    {:noreply, put_flash(socket, :error, error_msg)}
   end
 
   def handle_info(%{event: "presence_diff"}, socket) do

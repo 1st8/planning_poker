@@ -1,10 +1,10 @@
 # Planning Poker
 
-A real-time collaborative planning poker application for agile teams to estimate GitLab issues.
+A real-time collaborative planning poker application for agile teams to estimate issues from various issue tracking systems.
 
 ## Purpose
 
-Planning Poker is a Phoenix LiveView application that enables distributed teams to estimate the complexity and effort of GitLab issues in real-time. The application integrates with GitLab's API to fetch issues and supports two estimation methodologies:
+Planning Poker is a Phoenix LiveView application that enables distributed teams to estimate the complexity and effort of issues in real-time. The application uses a pluggable adapter pattern to integrate with different issue providers (GitLab, Mock, etc.) and supports two estimation methodologies:
 
 1. **Traditional Planning Poker**: Teams vote simultaneously on individual issues using story point cards, then reveal and discuss results
 2. **Magic Estimation**: Teams collaboratively arrange issues in ascending order of complexity by dragging them between columns and placing story point markers
@@ -17,7 +17,7 @@ Planning Poker is a Phoenix LiveView application that enables distributed teams 
 - Implements `:gen_statem` behavior for managing planning session lifecycle
 - Four distinct states: `:lobby`, `:voting`, `:results`, `:magic_estimation`
 - Handles state transitions, vote collection, and issue management
-- Integrates with `GitlabApi` for asynchronous issue fetching
+- Integrates with `IssueProvider` adapter for asynchronous issue fetching
 - Broadcasts state changes via `Phoenix.PubSub` for real-time updates
 
 **LiveView Layer (`lib/planning_poker_web/live/planning_session_live/`)**
@@ -29,27 +29,71 @@ Planning Poker is a Phoenix LiveView application that enables distributed teams 
 - `ParticipantsListComponent`: Real-time participant presence tracking
 - `VotingControlsComponent`: Session flow control buttons
 
+**Issue Provider Adapters (`lib/planning_poker/issue_providers/`)**
+- Pluggable adapter pattern for different issue tracking systems
+- `IssueProvider` behavior defines common interface: `client/1`, `fetch_issues/2`, `fetch_issue/3`
+- `Gitlab` adapter: Integrates with GitLab's GraphQL API, OAuth authentication
+- `Mock` adapter: In-memory provider for local development, simple username-based "authentication"
+- Configured via `ISSUE_PROVIDER` environment variable (defaults to `mock` in dev/test, `gitlab` in prod)
+
 **Integration Points**
-- GitLab OAuth authentication for user identity
-- GitLab API for fetching issues from configured issue boards (via `DEFAULT_LIST_ID`)
+- Adapter-based authentication (GitLab OAuth or mock username selection)
+- Issue fetching via configured provider adapter
 - Phoenix Presence for tracking active participants in sessions
 - Phoenix PubSub for broadcasting state changes to all connected clients
 
 ### Data Flow
 
-1. Users authenticate via GitLab OAuth, receiving an access token
-2. Planning session process starts as a supervised GenStatem process
+1. Users authenticate via configured provider (GitLab OAuth receives access token, or mock direct login)
+2. Planning session process starts as a supervised GenStatem process with auth token/credential
 3. LiveView subscribes to session PubSub topic and monitors the session process
-4. Session asynchronously fetches issues from GitLab API using user token
+4. Session asynchronously fetches issues via configured IssueProvider adapter
 5. State changes are broadcast to all connected LiveView clients
 6. Participant presence is tracked and synchronized via Phoenix Presence
 
 ### Key Design Decisions
 
+- **Adapter Pattern**: Issue provider abstraction allows seamless switching between GitLab, mock, and future providers (GitHub, Jira)
 - **Stateful Sessions**: Each planning session runs as a separate supervised process, allowing independent session management and fault tolerance
 - **Real-time Sync**: PubSub ensures all participants see the same state simultaneously
-- **Async Issue Fetching**: GitLab API calls are offloaded to supervised tasks to prevent blocking the state machine
+- **Async Issue Fetching**: API calls are offloaded to supervised tasks to prevent blocking the state machine
 - **Component Architecture**: UI is split into focused LiveComponents for maintainability and reusability
+
+### Local Development
+
+For local development and testing, use the mock provider:
+
+1. Set `ISSUE_PROVIDER=mock` in `config/.env.exs` (default in dev/test)
+2. Start the application: `mix phx.server`
+3. Login as mock users by visiting:
+   - http://localhost:4000/auth/mock/alice
+   - http://localhost:4000/auth/mock/bob
+   - http://localhost:4000/auth/mock/carol
+4. Open multiple browser windows/tabs to test collaboration features
+5. Mock provider includes 6 sample issues with realistic content
+
+### E2E Testing
+
+End-to-end tests are located in `test/e2e/` and use Playwright:
+
+```bash
+# Run all e2e tests
+npm run e2e:test
+
+# Run a specific test file
+npm run e2e:test -- readiness_controls.spec.js
+
+# Run tests with UI (interactive mode)
+npm run e2e:ui
+
+# Run tests in headed mode (see browser)
+npm run e2e:headed
+
+# Debug tests (step through with debugger)
+npm run e2e:debug
+```
+
+Tests automatically start the Phoenix server on port 4004 in e2e mode.
 
 ---
 
