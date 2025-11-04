@@ -21,31 +21,26 @@ export default {
   },
 
   rewriteGitLabUrls() {
-    // Get GitLab site URL from data attribute
-    const gitlabSite = this.el.dataset.gitlabSite;
-    if (!gitlabSite) {
-      console.warn("ProxyGitLabAssets hook: data-gitlab-site attribute not found");
+    // Get project ID from data attribute
+    const projectId = this.el.dataset.projectId;
+    if (!projectId) {
+      console.warn("ProxyGitLabAssets hook: data-project-id attribute not found");
       return;
     }
 
-    // Find all images and videos with GitLab project upload URLs
-    // Pattern: https://gitlab.sys.mixxt.net/-/project/:id/uploads/:hash/:filename
-    const assets = this.el.querySelectorAll(`img[src*="${gitlabSite}/-/project/"], video[src*="${gitlabSite}/-/project/"]`);
+    // Find all images and videos with GitLab upload URLs
+    // Pattern: /uploads/:hash/:filename (from our markdown renderer)
+    const assets = this.el.querySelectorAll('img[src^="/uploads/"], video[src^="/uploads/"]');
 
     assets.forEach(asset => {
-      const originalSrc = asset.src;
+      const originalSrc = asset.getAttribute('src');
 
       // Check if already proxied to avoid double-rewriting
       if (!originalSrc.startsWith("/proxy/")) {
-        // Extract project ID and upload path using regex
-        // Pattern: https://gitlab.sys.mixxt.net/-/project/25/uploads/abc123/image.jpg
-        const match = originalSrc.match(/\/-\/project\/(\d+)\/(uploads\/.+)$/);
-
-        if (match) {
-          const [, projectId, uploadPath] = match;
-          const proxiedSrc = `/proxy/project/${projectId}/${uploadPath}`;
-          asset.src = proxiedSrc;
-        }
+        // Pattern: /uploads/467af08891cb18bb726bcc3b1d4c098e/225434.jpg
+        // Rewrite to: /proxy/project/25/uploads/467af08891cb18bb726bcc3b1d4c098e/225434.jpg
+        const proxiedSrc = `/proxy/project/${projectId}${originalSrc}`;
+        asset.src = proxiedSrc;
       }
     });
   }
