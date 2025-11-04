@@ -1,26 +1,26 @@
 defmodule PlanningPokerWeb.UploadsProxyController do
   @moduledoc """
-  Proxies requests to GitLab uploads to work around cross-domain cookie issues.
+  Proxies requests to GitLab project uploads to work around cross-domain cookie issues.
 
   Firefox doesn't send cookies for cross-domain image requests, which causes
   authentication failures when loading GitLab assets. This controller proxies
-  the requests using the user's session token.
+  the requests using the user's OAuth token via GitLab's API.
   """
 
   use PlanningPokerWeb, :controller
   require Logger
 
   @doc """
-  Fetches an asset from GitLab uploads and streams it to the client.
+  Fetches an asset from GitLab project uploads via the API and streams it to the client.
 
-  The path parameter contains the full path after /proxy/uploads/, which is
-  prepended with the GitLab site URL to construct the full asset URL.
+  Uses GitLab's API endpoint which accepts OAuth token authentication:
+  /api/v4/projects/:id/uploads/:path
 
   Example:
-    Request: /proxy/uploads/-/system/user/avatar/19/avatar.png
-    Proxied to: https://gitlab.sys.mixxt.net/uploads/-/system/user/avatar/19/avatar.png
+    Request: /proxy/project/25/uploads/abc123/image.jpg
+    Proxied to: https://gitlab.sys.mixxt.net/api/v4/projects/25/uploads/abc123/image.jpg
   """
-  def fetch(conn, %{"path" => path}) do
+  def fetch(conn, %{"project_id" => project_id, "path" => path}) do
     case get_session(conn, :token) do
       nil ->
         conn
@@ -28,9 +28,9 @@ defmodule PlanningPokerWeb.UploadsProxyController do
         |> json(%{error: "Authentication required"})
 
       token ->
-        # Construct full GitLab URL
+        # Construct GitLab API URL for project uploads
         gitlab_site = System.get_env("GITLAB_SITE", "https://gitlab.com")
-        url = "#{gitlab_site}/uploads/#{Enum.join(path, "/")}"
+        url = "#{gitlab_site}/api/v4/projects/#{project_id}/uploads/#{Enum.join(path, "/")}"
 
         fetch_and_stream(conn, url, token)
     end
