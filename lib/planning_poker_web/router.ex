@@ -32,7 +32,7 @@ defmodule PlanningPokerWeb.Router do
 
     live "/", PlanningSessionLive.Show
     get "/participate", ParticipationController, :new
-    get "/proxy/uploads/*path", UploadsProxyController, :fetch
+    get "/proxy/project/:project_id/uploads/*path", UploadsProxyController, :fetch
   end
 
   # Other scopes may use custom stacks.
