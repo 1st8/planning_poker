@@ -1,13 +1,17 @@
 defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent do
   use PlanningPokerWeb, :live_component
 
+  import PlanningPokerWeb.PlanningComponents
+
   alias PlanningPoker.Planning
   require Logger
 
   @impl true
   def render(assigns) do
+    assigns = assign(assigns, :gitlab_site, System.get_env("GITLAB_SITE", "https://gitlab.com"))
+
     ~H"""
-    <div class="collaborative-editor prose prose-lg max-w-none">
+    <div class="collaborative-editor prose prose-lg max-w-none" phx-hook="ProxyGitLabAssets" data-gitlab-site={@gitlab_site} id="collaborative-editor">
       <div :if={@issue["sections"]} class="sections-container">
         <%= for {section, index} <- Enum.with_index(@issue["sections"]) do %>
           <% is_edited =
@@ -90,7 +94,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
                           <div class="status status-warning animate-ping w-6 h-6"></div>
                           <div class="avatar">
                             <div class="w-6 h-6 rounded-full">
-                              <img src={locked_by_user.avatar} alt={locked_by_user.name} />
+                              <.profile_image src={locked_by_user.avatar} alt={locked_by_user.name} />
                             </div>
                           </div>
                         </div>
