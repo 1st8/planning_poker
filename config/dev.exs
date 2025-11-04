@@ -1,5 +1,8 @@
 import Config
 
+# Store the environment for runtime checks (since Mix.env() is not available in releases)
+config :planning_poker, :env, :dev
+
 # For development, we disable any cache and enable
 # debugging and code reloading.
 #

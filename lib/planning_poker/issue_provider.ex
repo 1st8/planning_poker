@@ -131,7 +131,7 @@ defmodule PlanningPoker.IssueProvider do
   Returns the configured issue provider module.
 
   Checks the `ISSUE_PROVIDER` environment variable, falling back to defaults
-  based on `Mix.env()`:
+  based on the application environment:
 
   - `:dev` and `:test` default to `PlanningPoker.IssueProviders.Mock`
   - `:prod` defaults to `PlanningPoker.IssueProviders.Gitlab`
@@ -151,9 +151,10 @@ defmodule PlanningPoker.IssueProvider do
   end
 
   defp default_provider do
-    case Mix.env() do
-      env when env in [:dev, :test] -> PlanningPoker.IssueProviders.Mock
+    # Use Application.get_env instead of Mix.env() since Mix is not available in releases
+    case Application.get_env(:planning_poker, :env) do
       :prod -> PlanningPoker.IssueProviders.Gitlab
+      _ -> PlanningPoker.IssueProviders.Mock
     end
   end
 

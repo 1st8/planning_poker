@@ -34,7 +34,8 @@ defmodule PlanningPoker.Application do
   end
 
   defp validate_production_config do
-    if Mix.env() == :prod do
+    # Use Application.get_env instead of Mix.env() since Mix is not available in releases
+    if Application.get_env(:planning_poker, :env) == :prod do
       provider = PlanningPoker.IssueProvider.get_provider()
 
       if provider == PlanningPoker.IssueProviders.Mock do
