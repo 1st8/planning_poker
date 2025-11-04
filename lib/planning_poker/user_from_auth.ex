@@ -13,21 +13,16 @@ defmodule PlanningPoker.UserFromAuth do
     {:ok, basic_info(auth)}
   end
 
-  # github does it this way
-  defp avatar_from_auth(%{info: %{urls: %{avatar_url: image}}}), do: image
-
-  # facebook does it this way
-  defp avatar_from_auth(%{info: %{image: image}}), do: image
-
-  # default case if nothing matches
-  defp avatar_from_auth(auth) do
-    Logger.warning("#{auth.provider} needs to find an avatar URL!")
-    Logger.debug(Jason.encode!(auth))
-    nil
+  defp basic_info(auth) do
+    name = name_from_auth(auth)
+    %{id: auth.uid, name: name, avatar: generate_initials_avatar(name)}
   end
 
-  defp basic_info(auth) do
-    %{id: auth.uid, name: name_from_auth(auth), avatar: avatar_from_auth(auth)}
+  # Generate an initials-based avatar URL using ui-avatars.com
+  # This service creates avatars with initials that work cross-domain
+  defp generate_initials_avatar(name) do
+    encoded_name = URI.encode_www_form(name)
+    "https://ui-avatars.com/api/?name=#{encoded_name}&background=0D8ABC&color=fff&size=128"
   end
 
   defp name_from_auth(auth) do
