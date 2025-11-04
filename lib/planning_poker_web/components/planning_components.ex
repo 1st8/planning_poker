@@ -48,8 +48,10 @@ defmodule PlanningPokerWeb.PlanningComponents do
       |> String.split(" ")
       |> Enum.map(&String.first/1)
       |> Enum.join("+")
-      |> URI.encode_www_form()
 
-    "https://gravatar.com/avatar/#{email_hash}?d=https%3A%2F%2Fui-avatars.com%2Fapi%2F%3Fname%3D#{initials}%26background%3D0D8ABC%26color%3Dfff"
+    # URL encode the name parameter
+    encoded_name = URI.encode_www_form(initials)
+
+    "https://gravatar.com/avatar/#{email_hash}?d=initials&name=#{encoded_name}"
   end
 end
