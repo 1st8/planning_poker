@@ -15,21 +15,30 @@ defmodule PlanningPoker.UserFromAuth do
 
   defp basic_info(auth) do
     name = name_from_auth(auth)
-    %{id: auth.uid, name: name, avatar: generate_initials_avatar(name)}
+    email = auth.info.email || "#{auth.uid}@example.com"
+    %{id: auth.uid, name: name, avatar: generate_gravatar_url(email, name)}
   end
 
-  # Generate an initials-based avatar URL using ui-avatars.com
-  # This service creates avatars with initials that work cross-domain
-  defp generate_initials_avatar(name) do
-    # Extract initials: "Christoph Geschwind" -> "C G"
+  # Generate a Gravatar URL using SHA256 hash of email
+  # Falls back to initials-based generation if no Gravatar is found
+  defp generate_gravatar_url(email, name) do
+    # SHA256 hash the email
+    email_hash =
+      email
+      |> String.downcase()
+      |> String.trim()
+      |> then(&:crypto.hash(:sha256, &1))
+      |> Base.encode16(case: :lower)
+
+    # Extract initials for fallback: "Christoph Geschwind" -> "C+G"
     initials =
       name
       |> String.split(" ")
       |> Enum.map(&String.first/1)
-      |> Enum.join(" ")
+      |> Enum.join("+")
       |> URI.encode_www_form()
 
-    "https://ui-avatars.com/api/?name=#{initials}&background=0D8ABC&color=fff&size=128"
+    "https://gravatar.com/avatar/#{email_hash}?d=initials&name=#{initials}"
   end
 
   defp name_from_auth(auth) do
