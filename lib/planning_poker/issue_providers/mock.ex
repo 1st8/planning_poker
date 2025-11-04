@@ -193,19 +193,34 @@ defmodule PlanningPoker.IssueProviders.Mock do
       "alice" => %{
         id: "mock-user-alice",
         name: "Alice Anderson",
-        avatar: "https://ui-avatars.com/api/?name=Alice+Anderson&background=0D8ABC&color=fff"
+        email: "alice@example.com",
+        avatar: gravatar_url("alice@example.com", "A+A")
       },
       "bob" => %{
         id: "mock-user-bob",
         name: "Bob Builder",
-        avatar: "https://ui-avatars.com/api/?name=Bob+Builder&background=F59E0B&color=fff"
+        email: "bob@example.com",
+        avatar: gravatar_url("bob@example.com", "B+B")
       },
       "carol" => %{
         id: "mock-user-carol",
         name: "Carol Chen",
-        avatar: "https://ui-avatars.com/api/?name=Carol+Chen&background=8B5CF6&color=fff"
+        email: "carol@example.com",
+        avatar: gravatar_url("carol@example.com", "C+C")
       }
     }
+  end
+
+  # Generate a Gravatar URL using SHA256 hash of email
+  defp gravatar_url(email, initials) do
+    email_hash =
+      email
+      |> String.downcase()
+      |> String.trim()
+      |> then(&:crypto.hash(:sha256, &1))
+      |> Base.encode16(case: :lower)
+
+    "https://gravatar.com/avatar/#{email_hash}?d=initials&name=#{initials}"
   end
 
   defp initial_issues do
