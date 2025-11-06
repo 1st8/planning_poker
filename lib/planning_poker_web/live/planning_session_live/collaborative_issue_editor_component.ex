@@ -1,8 +1,6 @@
 defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent do
   use PlanningPokerWeb, :live_component
 
-  import PlanningPokerWeb.PlanningComponents
-
   alias PlanningPoker.Planning
   require Logger
 
@@ -92,7 +90,11 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
                           <div class="status status-warning animate-ping w-6 h-6"></div>
                           <div class="avatar">
                             <div class="w-6 h-6 rounded-full">
-                              <.profile_image user={locked_by_user} />
+                              <.live_component
+                                module={PlanningPokerWeb.PlanningComponents.ProfileImageComponent}
+                                id={"editor-lock-#{locked_by_user.id}"}
+                                user={locked_by_user}
+                              />
                             </div>
                           </div>
                         </div>
