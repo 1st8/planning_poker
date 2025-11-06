@@ -63,7 +63,7 @@ defmodule PlanningPokerWeb.PlanningComponents do
       name
       |> String.split(" ")
       |> Enum.map(&String.first/1)
-      |> Enum.join("+")
+      |> Enum.join(" ")
 
     # URL encode the name parameter
     encoded_name = URI.encode_www_form(initials)
