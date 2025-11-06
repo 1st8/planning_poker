@@ -77,7 +77,8 @@ defmodule PlanningPoker.IssueProviders.MockTest do
       user = Mock.get_user("alice")
       assert user.id == "mock-user-alice"
       assert user.name == "Alice Anderson"
-      assert user.avatar
+      assert user.email == "alice@example.com"
+      assert Map.has_key?(user, :avatar)
     end
 
     test "returns nil for invalid username" do

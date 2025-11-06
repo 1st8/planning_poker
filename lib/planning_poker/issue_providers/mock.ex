@@ -193,17 +193,20 @@ defmodule PlanningPoker.IssueProviders.Mock do
       "alice" => %{
         id: "mock-user-alice",
         name: "Alice Anderson",
-        email: "alice@example.com"
+        email: "alice@example.com",
+        avatar: nil
       },
       "bob" => %{
         id: "mock-user-bob",
         name: "Bob Builder",
-        email: "bob@example.com"
+        email: "bob@example.com",
+        avatar: nil
       },
       "carol" => %{
         id: "mock-user-carol",
         name: "Carol Chen",
-        email: "carol@example.com"
+        email: "carol@example.com",
+        avatar: nil
       }
     }
   end
