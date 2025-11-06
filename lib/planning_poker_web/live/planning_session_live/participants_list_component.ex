@@ -9,9 +9,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.ParticipantsListComponent do
           <%= for participant <- @participants do %>
             <li class="flex items-center gap-2 relative">
               <div class="avatar h-10 w-10">
-                <.live_component
-                  module={PlanningPokerWeb.PlanningComponents.ProfileImageComponent}
-                  id={"participant-#{participant.id}"}
+                <.profile_image
                   user={participant}
                   class={"mask mask-squircle #{if participant[:vote], do: "blur-sm grayscale", else: ""}"}
                   aria-hidden="true"

@@ -86,6 +86,8 @@ defmodule PlanningPokerWeb do
       import Phoenix.HTML
       # Core UI components
       import PlanningPokerWeb.CoreComponents
+      # Planning-specific components
+      import PlanningPokerWeb.PlanningComponents
 
       # Common modules used in templates
       alias Phoenix.LiveView.JS
