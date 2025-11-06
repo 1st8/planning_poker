@@ -69,7 +69,7 @@ config :ueberauth, Ueberauth,
          uid_field: :email,
          nickname_field: :username
        ]},
-    gitlab: {Ueberauth.Strategy.Gitlab, [default_scope: "api email profile"]}
+    gitlab: {Ueberauth.Strategy.Gitlab, [default_scope: "api"]}
   ]
 
 if config_env() in [:dev, :test] do
