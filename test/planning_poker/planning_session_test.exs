@@ -24,7 +24,7 @@ defmodule PlanningPoker.PlanningSessionTest do
   end
 
   describe "section editing in voting state" do
-    setup %{session_id: session_id, pid: pid} do
+    setup %{session_id: _session_id, pid: pid} do
       # Create a mock issue with description
       issue_with_sections = %{
         "id" => "gid://gitlab/Issue/123",
@@ -38,7 +38,7 @@ defmodule PlanningPoker.PlanningSessionTest do
 
       # Force the session into voting state with our test issue
       :sys.replace_state(pid, fn state_data ->
-        {state, data} = state_data
+        {_state, data} = state_data
         updated_data = data
           |> Map.put(:current_issue, issue_with_sections)
           |> Map.put(:issues, [%{"id" => "gid://gitlab/Issue/123", "title" => "Test Issue"}])
@@ -162,7 +162,7 @@ defmodule PlanningPoker.PlanningSessionTest do
   end
 
   describe "issue modification tracking" do
-    setup %{session_id: session_id, pid: pid} do
+    setup %{session_id: _session_id, pid: pid} do
       # Create a mock issue with sections that have original_content
       issue_with_sections = %{
         "id" => "gid://gitlab/Issue/123",
@@ -228,7 +228,7 @@ defmodule PlanningPoker.PlanningSessionTest do
   end
 
   describe "save_and_back_to_lobby" do
-    setup %{session_id: session_id, pid: pid} do
+    setup %{session_id: _session_id, pid: pid} do
       # Create a mock issue with sections
       issue_with_sections = %{
         "id" => "gid://gitlab/Issue/123",
@@ -314,7 +314,7 @@ defmodule PlanningPoker.PlanningSessionTest do
   end
 
   describe "magic estimation weight persistence" do
-    setup %{session_id: session_id, pid: pid} do
+    setup %{session_id: _session_id, pid: pid} do
       # Create mock issues
       issues = [
         %{
