@@ -104,7 +104,7 @@ defmodule PlanningPoker.IssueProviders.MockTest do
 
       # First fetch the original issue
       {:ok, original} = Mock.fetch_issue(client, "mock-issue-1")
-      original_description = original["description"]
+      _original_description = original["description"]
 
       # Update the issue
       new_description = "Updated description for testing"
