@@ -37,7 +37,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.VotingComponent do
               <button
                 class="btn btn-primary"
                 phx-click="save_and_back_to_lobby"
-                disabled={@issue["saving"]}
+                disabled={!!@issue["saving"]}
               >
                 {if @issue["saving"], do: "Saving...", else: "Save issue & Back"}
               </button>
