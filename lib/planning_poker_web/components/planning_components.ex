@@ -5,7 +5,10 @@ defmodule PlanningPokerWeb.PlanningComponents do
   use Phoenix.Component
 
   @doc """
-  Renders a profile image using Gravatar with SHA256 email hashing.
+  Renders a profile image with fallback support.
+
+  First tries to load the avatar URL from the user (e.g., GitLab avatar).
+  If that fails (e.g., Firefox blocking cross-origin cookies), falls back to Gravatar.
 
   ## Examples
 
@@ -18,20 +21,33 @@ defmodule PlanningPokerWeb.PlanningComponents do
   attr :rest, :global, doc: "arbitrary HTML attributes (aria-hidden, etc.)"
 
   def profile_image(assigns) do
+    avatar_url = Map.get(assigns.user, :avatar) || Map.get(assigns.user, "avatar")
+    gravatar_url = generate_gravatar_url(assigns.user)
+
     assigns =
       assigns
-      |> assign(:src, generate_gravatar_url(assigns.user))
+      |> assign(:src, avatar_url || gravatar_url)
+      |> assign(:gravatar_fallback, gravatar_url)
+      |> assign(:has_avatar, !!avatar_url)
       |> assign(:alt, assigns.alt || Map.get(assigns.user, :name, ""))
 
     ~H"""
-    <img src={@src} alt={@alt} class={@class} {@rest} />
+    <img
+      src={@src}
+      alt={@alt}
+      class={@class}
+      onerror={if @has_avatar, do: "this.onerror=null; this.src='#{@gravatar_fallback}'", else: nil}
+      {@rest}
+    />
     """
   end
 
   # Generate a Gravatar URL using SHA256 hash of email
   # Falls back to initials-based generation if no Gravatar is found
   defp generate_gravatar_url(user) do
-    email = Map.get(user, :email) || Map.get(user, "email") || "#{user.id || user["id"]}@example.com"
+    email =
+      Map.get(user, :email) || Map.get(user, "email") || "#{user.id || user["id"]}@example.com"
+
     name = Map.get(user, :name) || Map.get(user, "name") || "User"
 
     # SHA256 hash the email
