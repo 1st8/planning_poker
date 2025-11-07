@@ -11,7 +11,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
       <div :if={@issue["sections"]} class="sections-container">
         <%= for {section, index} <- Enum.with_index(@issue["sections"]) do %>
           <% is_edited =
-            section["content"] != section["original_content"] and section["original_content"] != nil
+            section["original_content"] == nil or section["content"] != section["original_content"]
 
           is_locked_by_other =
             section["locked_by"] != nil and section["locked_by"] != @current_user_id

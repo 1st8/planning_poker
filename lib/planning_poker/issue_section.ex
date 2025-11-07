@@ -76,6 +76,9 @@ defmodule PlanningPoker.IssueSection do
 
   Only the user who locked the section can unlock it.
   Clears the content_at_lock field when unlocking.
+
+  If the section content contains double newlines, it will be automatically
+  split into multiple sections, with new sections marked as modified.
   """
   def unlock_section(sections, section_id, user_id) do
     case find_section(sections, section_id) do
@@ -90,7 +93,9 @@ defmodule PlanningPoker.IssueSection do
               |> Map.put("locked_by", nil)
               |> Map.delete("content_at_lock")
             end)
-            {:ok, updated_sections}
+            # Split section on double newlines after unlocking
+            split_sections = split_section_on_newlines(updated_sections, section_id)
+            {:ok, split_sections}
 
           nil ->
             {:ok, sections}  # Already unlocked
@@ -259,5 +264,66 @@ defmodule PlanningPoker.IssueSection do
         section
       end
     end)
+  end
+
+  defp split_section_on_newlines(sections, section_id) do
+    case find_section(sections, section_id) do
+      nil ->
+        sections
+
+      section ->
+        # Split content on double newlines
+        segments =
+          section["content"]
+          |> String.split("\n\n")
+          |> Enum.map(&String.trim/1)
+          |> Enum.reject(&(&1 == ""))
+
+        case segments do
+          # No split needed - single segment or empty
+          [] ->
+            sections
+          [_single] ->
+            sections
+
+          # Multiple segments - need to split
+          [first_segment | remaining_segments] ->
+            # Update the original section with first segment
+            updated_original = %{section | "content" => first_segment}
+
+            # Create new sections for remaining segments (all marked as modified)
+            new_sections =
+              Enum.map(remaining_segments, fn segment ->
+                %{
+                  "id" => "temp-#{:erlang.unique_integer([:positive])}",
+                  "content" => segment,
+                  "original_content" => nil,  # Mark as new/modified
+                  "locked_by" => nil,
+                  "position" => 0,  # Will be updated in renumbering
+                  "deleted" => false
+                }
+              end)
+
+            # Find the position to insert new sections
+            original_position = section["position"]
+
+            # Split sections into before and after
+            {before, after_including_original} =
+              Enum.split_while(sections, fn s -> s["position"] < original_position end)
+
+            # Remove the original from the after list
+            after_sections = Enum.reject(after_including_original, fn s -> s["id"] == section_id end)
+
+            # Combine: before + updated_original + new_sections + after
+            combined = before ++ [updated_original] ++ new_sections ++ after_sections
+
+            # Renumber all sections sequentially
+            combined
+            |> Enum.with_index()
+            |> Enum.map(fn {s, index} ->
+              %{s | "id" => "section-#{index}", "position" => index}
+            end)
+        end
+    end
   end
 end

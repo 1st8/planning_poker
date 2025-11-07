@@ -150,6 +150,164 @@ defmodule PlanningPoker.IssueSectionTest do
 
       assert result == {:error, :section_not_found}
     end
+
+    test "splits section on double newlines when unlocking" do
+      sections = [
+        %{
+          "id" => "section-0",
+          "content" => "My content\n\nHello World",
+          "original_content" => "My content",
+          "locked_by" => "user-123",
+          "position" => 0,
+          "deleted" => false
+        }
+      ]
+
+      {:ok, updated} = IssueSection.unlock_section(sections, "section-0", "user-123")
+
+      assert length(updated) == 2
+      assert Enum.at(updated, 0)["content"] == "My content"
+      assert Enum.at(updated, 1)["content"] == "Hello World"
+    end
+
+    test "splits section into three parts on multiple double newlines" do
+      sections = [
+        %{
+          "id" => "section-0",
+          "content" => "Part A\n\nPart B\n\nPart C",
+          "original_content" => "Part A",
+          "locked_by" => "user-123",
+          "position" => 0,
+          "deleted" => false
+        }
+      ]
+
+      {:ok, updated} = IssueSection.unlock_section(sections, "section-0", "user-123")
+
+      assert length(updated) == 3
+      assert Enum.at(updated, 0)["content"] == "Part A"
+      assert Enum.at(updated, 1)["content"] == "Part B"
+      assert Enum.at(updated, 2)["content"] == "Part C"
+    end
+
+    test "filters out empty segments when splitting" do
+      sections = [
+        %{
+          "id" => "section-0",
+          "content" => "Part A\n\n\n\nPart B",
+          "original_content" => "Part A",
+          "locked_by" => "user-123",
+          "position" => 0,
+          "deleted" => false
+        }
+      ]
+
+      {:ok, updated} = IssueSection.unlock_section(sections, "section-0", "user-123")
+
+      # Should only create 2 sections, not 3 (empty segment filtered)
+      assert length(updated) == 2
+      assert Enum.at(updated, 0)["content"] == "Part A"
+      assert Enum.at(updated, 1)["content"] == "Part B"
+    end
+
+    test "marks new sections as modified after splitting" do
+      sections = [
+        %{
+          "id" => "section-0",
+          "content" => "Original\n\nNew content",
+          "original_content" => "Original",
+          "locked_by" => "user-123",
+          "position" => 0,
+          "deleted" => false
+        }
+      ]
+
+      {:ok, updated} = IssueSection.unlock_section(sections, "section-0", "user-123")
+
+      # New section should have original_content = nil to mark as modified
+      new_section = Enum.at(updated, 1)
+      assert new_section["original_content"] == nil
+      assert new_section["content"] == "New content"
+    end
+
+    test "renumbers all sections sequentially after splitting" do
+      sections = [
+        %{
+          "id" => "section-0",
+          "content" => "First\n\nSecond",
+          "original_content" => "First",
+          "locked_by" => "user-123",
+          "position" => 0,
+          "deleted" => false
+        }
+      ]
+
+      {:ok, updated} = IssueSection.unlock_section(sections, "section-0", "user-123")
+
+      assert Enum.at(updated, 0)["id"] == "section-0"
+      assert Enum.at(updated, 0)["position"] == 0
+      assert Enum.at(updated, 1)["id"] == "section-1"
+      assert Enum.at(updated, 1)["position"] == 1
+    end
+
+    test "does not split when content has no double newlines" do
+      sections = [
+        %{
+          "id" => "section-0",
+          "content" => "Single line content",
+          "original_content" => "Original",
+          "locked_by" => "user-123",
+          "position" => 0,
+          "deleted" => false
+        }
+      ]
+
+      {:ok, updated} = IssueSection.unlock_section(sections, "section-0", "user-123")
+
+      assert length(updated) == 1
+      assert Enum.at(updated, 0)["content"] == "Single line content"
+    end
+
+    test "splits middle section and renumbers subsequent sections" do
+      sections = [
+        %{
+          "id" => "section-0",
+          "content" => "Before",
+          "original_content" => "Before",
+          "locked_by" => nil,
+          "position" => 0,
+          "deleted" => false
+        },
+        %{
+          "id" => "section-1",
+          "content" => "Split A\n\nSplit B",
+          "original_content" => "Split A",
+          "locked_by" => "user-123",
+          "position" => 1,
+          "deleted" => false
+        },
+        %{
+          "id" => "section-2",
+          "content" => "After",
+          "original_content" => "After",
+          "locked_by" => nil,
+          "position" => 2,
+          "deleted" => false
+        }
+      ]
+
+      {:ok, updated} = IssueSection.unlock_section(sections, "section-1", "user-123")
+
+      assert length(updated) == 4
+      assert Enum.at(updated, 0)["content"] == "Before"
+      assert Enum.at(updated, 0)["id"] == "section-0"
+      assert Enum.at(updated, 1)["content"] == "Split A"
+      assert Enum.at(updated, 1)["id"] == "section-1"
+      assert Enum.at(updated, 2)["content"] == "Split B"
+      assert Enum.at(updated, 2)["id"] == "section-2"
+      assert Enum.at(updated, 3)["content"] == "After"
+      assert Enum.at(updated, 3)["id"] == "section-3"
+    end
   end
 
   describe "cancel_section_edit/3" do
