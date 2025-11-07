@@ -95,36 +95,3 @@
 body {
   @apply bg-base-300 min-h-screen;
 }
-
-/* Magic Estimation styles */
-.issue-column {
-  @apply bg-base-200 p-4 rounded-lg;
-  min-height: 500px;
-}
-
-.issue-column h2 {
-  @apply border-b border-base-300 pb-2;
-}
-
-.issue-card,
-.marker-card {
-  @apply shadow-sm transition-all duration-200;
-}
-
-.issue-card:hover,
-.marker-card {
-  @apply shadow-md;
-}
-
-/* Sortable styles */
-.sortable-ghost {
-  @apply opacity-50 bg-base-100 border-2 border-dashed border-primary;
-}
-
-.sortable-chosen {
-  @apply shadow-lg z-10;
-}
-
-.sortable-drag {
-  @apply shadow-xl;
-}

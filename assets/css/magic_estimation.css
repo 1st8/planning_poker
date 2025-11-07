@@ -3,19 +3,21 @@
 /* Issue columns */
 .issue-column {
   @apply bg-base-200 p-4 rounded-lg;
-  min-height: 300px;
+  min-height: 500px;
 }
 
 .issue-column h2 {
   @apply border-b border-base-300 pb-2;
 }
 
-/* Issue cards */
-.issue-card {
+/* Issue cards and markers */
+.issue-card,
+.marker-card {
   @apply shadow-sm transition-all duration-200;
 }
 
-.issue-card:hover {
+.issue-card:hover,
+.marker-card {
   @apply shadow-md;
 }
 
