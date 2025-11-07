@@ -251,13 +251,25 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
   # Helpers
 
   defp render_markdown(content) do
-    case Earmark.as_html(content) do
-      {:ok, html, _} ->
-        # Sanitize HTML to prevent XSS attacks
-        HtmlSanitizeEx.basic_html(html)
-
-      {:error, _html, _errors} ->
-        "<p>Error rendering markdown</p>"
-    end
+    MDEx.to_html!(content,
+      extension: [
+        strikethrough: true,
+        tagfilter: true,
+        table: true,
+        autolink: true,
+        tasklist: true,
+        footnotes: true
+      ],
+      parse: [
+        smart: true,
+        relaxed_tasklist_matching: true
+      ],
+      render: [
+        unsafe_: false
+      ]
+    )
+  rescue
+    _ ->
+      "<p>Error rendering markdown</p>"
   end
 end
