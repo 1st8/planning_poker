@@ -42,7 +42,7 @@ config :esbuild,
 
 # Configure tailwind (the version is required)
 config :tailwind,
-  version: "4.0.9",
+  version: "4.1.17",
   planning_poker: [
     args: ~w(
       --input=assets/css/app.css
