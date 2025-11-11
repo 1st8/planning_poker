@@ -60,6 +60,84 @@ defmodule PlanningPoker.IssueSectionTest do
     test "returns empty list for empty string" do
       assert IssueSection.parse_into_sections("") == []
     end
+
+    test "preserves HTML comments as single section" do
+      markdown = """
+      Paragraph before.
+
+      <!-- This is an HTML comment
+      with multiple lines
+      and double newlines
+
+      inside it -->
+
+      Paragraph after.
+      """
+
+      sections = IssueSection.parse_into_sections(markdown)
+
+      assert length(sections) == 3
+      assert Enum.at(sections, 0)["content"] == "Paragraph before."
+      assert Enum.at(sections, 1)["content"] =~ "<!-- This is an HTML comment"
+      assert Enum.at(sections, 1)["content"] =~ "inside it -->"
+      assert Enum.at(sections, 2)["content"] == "Paragraph after."
+    end
+
+    test "preserves details tags as single section" do
+      markdown = """
+      Hier darf gesplittet werden.
+
+      Hier auch. Die Details und der Kommentar aber nicht.
+
+      <details>
+      <summary>Screencast</summary>
+      ![](/uploads/5060802188d3783d7425fec729c8d2db/Bildschirmaufnahme_2025-10-29_um_11.36.15.mov)
+
+      </details>
+      """
+
+      sections = IssueSection.parse_into_sections(markdown)
+
+      # Should have 3 sections: text before, details block, empty or nothing after
+      assert length(sections) == 3
+      assert Enum.at(sections, 0)["content"] == "Hier darf gesplittet werden."
+      assert Enum.at(sections, 1)["content"] == "Hier auch. Die Details und der Kommentar aber nicht."
+
+      # The details block should be preserved as one section
+      details_section = Enum.at(sections, 2)
+      assert details_section["content"] =~ "<details>"
+      assert details_section["content"] =~ "<summary>Screencast</summary>"
+      assert details_section["content"] =~ "</details>"
+    end
+
+    test "preserves nested details with multiple newlines" do
+      markdown = """
+      First paragraph.
+
+      <details>
+      <summary>Details</summary>
+
+      Content inside with newlines.
+
+      More content.
+      </details>
+
+      Last paragraph.
+      """
+
+      sections = IssueSection.parse_into_sections(markdown)
+
+      assert length(sections) == 3
+      assert Enum.at(sections, 0)["content"] == "First paragraph."
+
+      details_section = Enum.at(sections, 1)
+      assert details_section["content"] =~ "<details>"
+      assert details_section["content"] =~ "Content inside with newlines."
+      assert details_section["content"] =~ "More content."
+      assert details_section["content"] =~ "</details>"
+
+      assert Enum.at(sections, 2)["content"] == "Last paragraph."
+    end
   end
 
   describe "lock_section/3" do
