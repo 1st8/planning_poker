@@ -78,6 +78,16 @@ defmodule PlanningPoker.IssueProviders.Mock do
     end
   end
 
+  @impl PlanningPoker.IssueProvider
+  def post_comment(client, _project_id, issue_iid, comment_text) do
+    result = GenServer.call(__MODULE__, {:post_comment, client.user_id, issue_iid, comment_text})
+
+    case result do
+      nil -> {:error, :not_found}
+      comment -> {:ok, comment}
+    end
+  end
+
   @doc """
   Gets a mock user by username.
 
@@ -183,6 +193,43 @@ defmodule PlanningPoker.IssueProviders.Mock do
         new_state = put_in(state.issues[found_issue["id"]], updated_issue)
 
         {:reply, updated_issue, new_state}
+    end
+  end
+
+  @impl true
+  def handle_call({:post_comment, user_id, issue_iid, comment_text}, _from, state) do
+    # Find issue by iid
+    issue =
+      state.issues
+      |> Map.values()
+      |> Enum.find(&(&1["iid"] == issue_iid))
+
+    case issue do
+      nil ->
+        {:reply, nil, state}
+
+      _found_issue ->
+        # Get the user who posted the comment
+        user = Map.get(state.users, user_id, %{name: "Unknown User"})
+
+        # Create a mock comment/note
+        comment = %{
+          "id" => "mock-comment-#{:erlang.unique_integer([:positive])}",
+          "body" => comment_text,
+          "author" => %{"name" => user.name, "username" => user_id},
+          "created_at" => DateTime.utc_now() |> DateTime.to_iso8601(),
+          "system" => false,
+          "noteable_type" => "Issue",
+          "noteable_iid" => issue_iid
+        }
+
+        Logger.info("""
+        Mock provider: Posted comment to issue ##{issue_iid}
+        Author: #{user.name}
+        Body preview: #{String.slice(comment_text, 0..100)}...
+        """)
+
+        {:reply, comment, state}
     end
   end
 
