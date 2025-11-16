@@ -2,6 +2,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.VotingComponent do
   use PlanningPokerWeb, :live_component
 
   alias PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
+  alias PlanningPokerWeb.PlanningSessionLive.AudioRecorderComponent
 
   def render(assigns) do
     ~H"""
@@ -26,6 +27,16 @@ defmodule PlanningPokerWeb.PlanningSessionLive.VotingComponent do
           session_id={@session_id}
           participants={@participants}
         />
+
+        <!-- Audio Recorder (GitLab only) -->
+        <%= if is_gitlab_provider?() do %>
+          <.live_component
+            module={AudioRecorderComponent}
+            id="audio-recorder"
+            issue={@issue}
+            session_id={@session_id}
+          />
+        <% end %>
 
         <:controls>
           <%= if @mode == :magic_estimation do %>
@@ -57,5 +68,9 @@ defmodule PlanningPokerWeb.PlanningSessionLive.VotingComponent do
       </.layout_box>
     </main>
     """
+  end
+
+  defp is_gitlab_provider? do
+    PlanningPoker.IssueProvider.get_provider() == PlanningPoker.IssueProviders.Gitlab
   end
 end
