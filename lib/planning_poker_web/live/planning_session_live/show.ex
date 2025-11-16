@@ -2,6 +2,8 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
   use PlanningPokerWeb, :live_view
 
   alias PlanningPoker.Planning
+  alias PlanningPoker.AudioTranscription.Worker, as: TranscriptionWorker
+  alias PlanningPokerWeb.PlanningSessionLive.AudioRecorderComponent
 
   require Logger
 
@@ -25,6 +27,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
      |> assign_title()
      |> assign(:participants, Planning.get_participants!(id))
      |> assign(:current_participant, participant)
+     |> assign(:token, token)
      |> assign(:personal_notes, %{})}
   end
 
@@ -187,6 +190,108 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     Process.exit(self(), :normal)
     {:noreply, socket}
   end
+
+  # Audio recording upload and transcription handlers
+
+  def handle_info({:process_audio_recording, base64_data, mime_type, _component_id}, socket) do
+    # This message is sent by the AudioRecorderComponent with base64-encoded audio data
+    # Decode and save the file, then start transcription
+
+    try do
+      # Decode base64 data
+      binary_data = Base.decode64!(base64_data)
+
+      # Create upload directory if it doesn't exist
+      upload_dir =
+        Path.join(["priv", "static", "uploads", "audio", socket.assigns.planning_session.id])
+
+      File.mkdir_p!(upload_dir)
+
+      # Generate unique filename with appropriate extension
+      timestamp = System.system_time(:millisecond)
+      ext = mime_type_to_extension(mime_type)
+      audio_path = Path.join(upload_dir, "#{timestamp}#{ext}")
+
+      # Write the binary data to file
+      File.write!(audio_path, binary_data)
+
+      Logger.info("Audio file saved: #{audio_path} (#{byte_size(binary_data)} bytes)")
+
+      # Start transcription task
+      issue = socket.assigns.planning_session.data.current_issue
+      token = socket.assigns.token
+      user_name = socket.assigns.current_participant.name
+
+      task =
+        TranscriptionWorker.transcribe_and_post(
+          audio_path: audio_path,
+          issue: issue,
+          token: token,
+          user_name: user_name
+        )
+
+      # Update component to show "transcribing" state
+      AudioRecorderComponent.set_transcribing(socket, "audio-recorder")
+
+      # Store task ref to handle completion
+      {:noreply, assign(socket, :transcription_task_ref, task.ref)}
+    rescue
+      e ->
+        Logger.error("Failed to process audio recording: #{inspect(e)}")
+        AudioRecorderComponent.set_error(socket, "audio-recorder", "Failed to save recording")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_info({ref, result}, socket) when socket.assigns[:transcription_task_ref] == ref do
+    # Transcription task completed
+    Process.demonitor(ref, [:flush])
+
+    case result do
+      {:ok, _transcription} ->
+        # Success! Update component
+        AudioRecorderComponent.set_success(socket, "audio-recorder")
+        Logger.info("Audio transcription and posting completed successfully")
+
+      {:error, reason} ->
+        # Error - show to user
+        error_msg = format_transcription_error(reason)
+        AudioRecorderComponent.set_error(socket, "audio-recorder", error_msg)
+        Logger.error("Audio transcription failed: #{inspect(reason)}")
+    end
+
+    {:noreply, assign(socket, :transcription_task_ref, nil)}
+  end
+
+  def handle_info({:DOWN, ref, :process, _pid, reason}, socket)
+      when socket.assigns[:transcription_task_ref] == ref do
+    # Transcription task crashed
+    Logger.error("Transcription task crashed: #{inspect(reason)}")
+    AudioRecorderComponent.set_error(socket, "audio-recorder", "Transcription failed unexpectedly")
+
+    {:noreply, assign(socket, :transcription_task_ref, nil)}
+  end
+
+  def handle_info({:reset_recorder, component_id}, socket) do
+    # Reset the recorder component to idle state after success
+    send_update(AudioRecorderComponent, id: component_id, recording_state: :idle, transcription_status: nil)
+    {:noreply, socket}
+  end
+
+  defp mime_type_to_extension(mime_type) do
+    case mime_type do
+      "audio/webm" <> _ -> ".webm"
+      "audio/ogg" <> _ -> ".ogg"
+      "audio/mp4" -> ".m4a"
+      "audio/mpeg" -> ".mp3"
+      "audio/wav" -> ".wav"
+      _ -> ".webm"
+    end
+  end
+
+  defp format_transcription_error({:gitlab_post_failed, _}), do: "Failed to post comment to GitLab"
+  defp format_transcription_error({:transcription_failed, _}), do: "Failed to transcribe audio"
+  defp format_transcription_error(_), do: "An unexpected error occurred"
 
   def assign_title(socket) do
     socket

@@ -160,12 +160,18 @@ defmodule PlanningPokerWeb.PlanningSessionLive.AudioRecorderComponent do
 
   @impl true
   def handle_event("send_recording", _params, socket) do
-    # Trigger the upload - the parent LiveView will handle the actual upload
-    send(self(), {:upload_audio_recording, socket.assigns.id})
-
+    # Request the audio data from JavaScript
     {:noreply,
      socket
-     |> assign(:recording_state, :uploading)}
+     |> assign(:recording_state, :uploading)
+     |> push_event("request-audio-data", %{})}
+  end
+
+  @impl true
+  def handle_event("audio_data", %{"data" => base64_data, "mime_type" => mime_type}, socket) do
+    # Received audio data from JavaScript, send to parent for processing
+    send(self(), {:process_audio_recording, base64_data, mime_type, socket.assigns.id})
+    {:noreply, socket}
   end
 
   @impl true

@@ -25,6 +25,7 @@ const AudioRecorder = {
     // Listen for server events
     this.handleEvent("start-audio-recording", () => this.startRecording());
     this.handleEvent("stop-audio-recording", () => this.stopRecording());
+    this.handleEvent("request-audio-data", () => this.sendAudioData());
   },
 
   destroyed() {
@@ -145,6 +146,46 @@ const AudioRecorder = {
       mimeType: this.mediaRecorder.mimeType,
       duration: Math.floor((Date.now() - this.startTime) / 1000)
     });
+  },
+
+  async sendAudioData() {
+    if (!this.audioBlob) {
+      console.error("No audio blob available");
+      this.pushEvent("recording_error", { error: "No audio data available" });
+      return;
+    }
+
+    try {
+      // Convert blob to base64
+      const reader = new FileReader();
+
+      reader.onloadend = () => {
+        // Extract base64 data (remove data:audio/...;base64, prefix)
+        const base64Data = reader.result.split(',')[1];
+
+        // Send to LiveView
+        this.pushEvent("audio_data", {
+          data: base64Data,
+          mime_type: this.audioBlob.type,
+          size: this.audioBlob.size
+        });
+
+        console.log("Audio data sent to server:", {
+          size: this.audioBlob.size,
+          mimeType: this.audioBlob.type
+        });
+      };
+
+      reader.onerror = () => {
+        console.error("Failed to read audio blob");
+        this.pushEvent("recording_error", { error: "Failed to read audio data" });
+      };
+
+      reader.readAsDataURL(this.audioBlob);
+    } catch (error) {
+      console.error("Error sending audio data:", error);
+      this.pushEvent("recording_error", { error: error.message });
+    }
   },
 
   getSupportedMimeType() {
