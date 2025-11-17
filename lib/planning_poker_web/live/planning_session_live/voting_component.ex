@@ -28,15 +28,13 @@ defmodule PlanningPokerWeb.PlanningSessionLive.VotingComponent do
           participants={@participants}
         />
 
-        <!-- Audio Recorder (GitLab only) -->
-        <%= if is_gitlab_provider?() do %>
-          <.live_component
-            module={AudioRecorderComponent}
-            id="audio-recorder"
-            issue={@issue}
-            session_id={@session_id}
-          />
-        <% end %>
+        <!-- Audio Recorder -->
+        <.live_component
+          module={AudioRecorderComponent}
+          id="audio-recorder"
+          issue={@issue}
+          session_id={@session_id}
+        />
 
         <:controls>
           <%= if @mode == :magic_estimation do %>
@@ -68,9 +66,5 @@ defmodule PlanningPokerWeb.PlanningSessionLive.VotingComponent do
       </.layout_box>
     </main>
     """
-  end
-
-  defp is_gitlab_provider? do
-    PlanningPoker.IssueProvider.get_provider() == PlanningPoker.IssueProviders.Gitlab
   end
 end

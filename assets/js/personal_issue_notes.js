@@ -17,6 +17,20 @@ export default {
 
     // Listen for input events
     this.el.addEventListener("input", this.handleInput.bind(this));
+
+    // Listen for server event to append transcription to notes
+    this.handleEvent("append_to_personal_notes", (payload) => {
+      // Only append if this is the correct issue
+      if (payload.issue_id === this.issueId) {
+        // Append text to textarea
+        const currentValue = this.el.value;
+        const newValue = currentValue + payload.text;
+        this.el.value = newValue;
+
+        // Save immediately (without debounce)
+        this.saveNote(newValue);
+      }
+    });
   },
 
   updated() {

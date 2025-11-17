@@ -7,10 +7,14 @@
  * Events listened to from server:
  * - start-audio-recording: Begin recording
  * - stop-audio-recording: Stop recording and prepare blob
+ * - cancel-audio-recording: Cancel recording and cleanup
+ * - request-audio-data: Send audio data to server for processing
  *
  * Events sent to server:
  * - update_duration: Periodic updates of recording duration (every second)
- * - recording_complete: Fires when recording stops with blob URL
+ * - recording_complete: Fires when recording stops with blob URL and sets audio player
+ * - audio_data: Sends base64-encoded audio data
+ * - recording_error: Sends error messages
  */
 
 const AudioRecorder = {
@@ -21,10 +25,15 @@ const AudioRecorder = {
     this.timerInterval = null;
     this.startTime = null;
     this.audioBlob = null;
+    this.selectedDeviceId = null;
+
+    // Enumerate available audio input devices
+    this.enumerateDevices();
 
     // Listen for server events
-    this.handleEvent("start-audio-recording", () => this.startRecording());
+    this.handleEvent("start-audio-recording", (payload) => this.startRecording(payload.device_id));
     this.handleEvent("stop-audio-recording", () => this.stopRecording());
+    this.handleEvent("cancel-audio-recording", () => this.cleanup());
     this.handleEvent("request-audio-data", () => this.sendAudioData());
   },
 
@@ -32,16 +41,63 @@ const AudioRecorder = {
     this.cleanup();
   },
 
-  async startRecording() {
+  async enumerateDevices() {
     try {
-      // Request microphone access
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
+      // Request initial permission to enumerate devices with labels
+      const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // Get list of all media devices
+      const devices = await navigator.mediaDevices.enumerateDevices();
+
+      // Stop the temporary stream immediately
+      tempStream.getTracks().forEach(track => track.stop());
+
+      // Filter to audio input devices only
+      const audioInputs = devices
+        .filter(device => device.kind === 'audioinput')
+        .map(device => ({
+          deviceId: device.deviceId,
+          label: device.label || `Microphone ${device.deviceId.substring(0, 8)}`,
+          kind: device.kind
+        }));
+
+      // Send to LiveView component
+      if (audioInputs.length > 0) {
+        this.pushEvent("devices_enumerated", { devices: audioInputs });
+        this.selectedDeviceId = audioInputs[0].deviceId; // Default to first device
+      }
+
+      console.log("Available audio inputs:", audioInputs);
+    } catch (error) {
+      console.error("Failed to enumerate devices:", error);
+    }
+  },
+
+  async startRecording(deviceId) {
+    try {
+      // Use selected device or default
+      const actualDeviceId = deviceId || this.selectedDeviceId;
+
+      // Request microphone access - IMPORTANT: Explicitly request audio INPUT
+      const constraints = {
+        audio: actualDeviceId ? {
+          deviceId: { exact: actualDeviceId },
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } : {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true
         }
-      });
+      };
+
+      console.log("Starting recording with constraints:", constraints);
+      this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+      // Log the actual track being used
+      const audioTrack = this.stream.getAudioTracks()[0];
+      console.log("Recording from:", audioTrack.label, "Settings:", audioTrack.getSettings());
 
       // Determine the best supported MIME type
       const mimeType = this.getSupportedMimeType();
@@ -127,8 +183,15 @@ const AudioRecorder = {
       type: this.mediaRecorder.mimeType
     });
 
-    // Create a URL for the blob (for potential playback)
+    // Create a URL for the blob (for playback)
     const blobUrl = URL.createObjectURL(this.audioBlob);
+
+    // Set audio player source for playback preview
+    const audioPlayer = document.getElementById('audio-playback');
+    if (audioPlayer) {
+      audioPlayer.src = blobUrl;
+      audioPlayer.load();
+    }
 
     // Store blob for later upload
     window._currentAudioBlob = this.audioBlob;
@@ -222,8 +285,17 @@ const AudioRecorder = {
       this.mediaRecorder = null;
     }
 
+    // Clear audio player
+    const audioPlayer = document.getElementById('audio-playback');
+    if (audioPlayer && audioPlayer.src) {
+      URL.revokeObjectURL(audioPlayer.src);
+      audioPlayer.src = '';
+      audioPlayer.load();
+    }
+
     this.audioChunks = [];
     this.startTime = null;
+    this.audioBlob = null;
   }
 };
 

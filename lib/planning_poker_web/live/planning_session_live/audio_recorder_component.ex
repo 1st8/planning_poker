@@ -21,28 +21,29 @@ defmodule PlanningPokerWeb.PlanningSessionLive.AudioRecorderComponent do
      |> assign(assigns)
      |> assign_new(:recording_state, fn -> :idle end)
      |> assign_new(:recording_duration, fn -> 0 end)
-     |> assign_new(:transcription_status, fn -> nil end)}
+     |> assign_new(:transcription_status, fn -> nil end)
+     |> assign_new(:available_devices, fn -> [] end)
+     |> assign_new(:selected_device_id, fn -> nil end)}
   end
 
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="audio-recorder border-t border-gray-200 pt-6 mt-6">
-      <div class="flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-gray-900">Voice Comment</h3>
+    <div class="audio-recorder border-t border-gray-200 pt-6 mt-6" id={"audio-recorder-#{@id}"} phx-hook="AudioRecorder">
+      <div class="flex flex-col gap-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-semibold text-gray-900">Voice Comment</h3>
 
-        <%= case @recording_state do %>
-          <% :idle -> %>
-            <button
-              phx-click="start_recording"
-              phx-target={@myself}
-              class="btn btn-sm btn-outline gap-2"
-              id="start-recording-btn"
-              phx-hook="AudioRecorder"
-            >
-              <.icon name="hero-microphone" class="h-5 w-5" />
-              Kommentar aufnehmen
-            </button>
+          <%= case @recording_state do %>
+            <% :idle -> %>
+              <button
+                phx-click="start_recording"
+                phx-target={@myself}
+                class="btn btn-sm btn-outline gap-2"
+              >
+                <.icon name="hero-microphone" class="h-5 w-5" />
+                Kommentar aufnehmen
+              </button>
 
           <% :recording -> %>
             <div class="flex items-center gap-4">
@@ -69,27 +70,37 @@ defmodule PlanningPokerWeb.PlanningSessionLive.AudioRecorderComponent do
             </div>
 
           <% :stopped -> %>
-            <div class="flex items-center gap-4">
-              <span class="text-sm text-gray-600">
-                Recording ready (<%= format_duration(@recording_duration) %>)
-              </span>
+            <div class="flex flex-col gap-3 w-full">
+              <div class="flex items-center gap-4">
+                <span class="text-sm text-gray-600">
+                  Recording ready (<%= format_duration(@recording_duration) %>)
+                </span>
 
-              <button
-                phx-click="cancel_recording"
-                phx-target={@myself}
-                class="btn btn-sm btn-ghost"
-              >
-                Cancel
-              </button>
+                <button
+                  phx-click="cancel_recording"
+                  phx-target={@myself}
+                  class="btn btn-sm btn-ghost"
+                >
+                  Cancel
+                </button>
 
-              <button
-                phx-click="send_recording"
-                phx-target={@myself}
-                class="btn btn-sm btn-primary gap-2"
-              >
-                <.icon name="hero-paper-airplane" class="h-5 w-5" />
-                Senden
-              </button>
+                <button
+                  phx-click="send_recording"
+                  phx-target={@myself}
+                  class="btn btn-sm btn-primary gap-2"
+                >
+                  <.icon name="hero-paper-airplane" class="h-5 w-5" />
+                  Senden
+                </button>
+              </div>
+
+              <!-- Audio playback -->
+              <div class="flex items-center gap-2 bg-base-200 p-3 rounded-lg">
+                <.icon name="hero-speaker-wave" class="h-5 w-5 text-gray-500" />
+                <audio id="audio-playback" controls class="flex-1 h-8">
+                  Your browser does not support the audio element.
+                </audio>
+              </div>
             </div>
 
           <% :uploading -> %>
@@ -124,21 +135,54 @@ defmodule PlanningPokerWeb.PlanningSessionLive.AudioRecorderComponent do
               </span>
             </div>
         <% end %>
-      </div>
+        </div>
 
-      <!-- Hidden audio element for playback (future enhancement) -->
-      <audio id="audio-playback" class="hidden"></audio>
+        <!-- Microphone selector (only in idle state) -->
+        <%= if @recording_state == :idle && length(@available_devices) > 0 do %>
+          <div class="flex items-center gap-2">
+            <label for="microphone-select" class="text-sm font-medium text-gray-700">
+              Microphone:
+            </label>
+            <select
+              id="microphone-select"
+              class="select select-sm select-bordered flex-1"
+              phx-change="select_device"
+              phx-target={@myself}
+            >
+              <%= for device <- @available_devices do %>
+                <option value={device["deviceId"]} selected={device["deviceId"] == @selected_device_id}>
+                  <%= device["label"] %>
+                </option>
+              <% end %>
+            </select>
+          </div>
+        <% end %>
+      </div>
     </div>
     """
   end
 
   @impl true
+  def handle_event("devices_enumerated", %{"devices" => devices}, socket) do
+    # Store available audio input devices
+    {:noreply, assign(socket, :available_devices, devices)}
+  end
+
+  @impl true
+  def handle_event("select_device", %{"value" => device_id}, socket) do
+    # Update selected device
+    {:noreply, assign(socket, :selected_device_id, device_id)}
+  end
+
+  @impl true
   def handle_event("start_recording", _params, socket) do
+    device_id = socket.assigns.selected_device_id
+
     {:noreply,
      socket
      |> assign(:recording_state, :recording)
      |> assign(:recording_duration, 0)
-     |> push_event("start-audio-recording", %{})}
+     |> push_event("start-audio-recording", %{device_id: device_id})}
   end
 
   @impl true
@@ -155,7 +199,8 @@ defmodule PlanningPokerWeb.PlanningSessionLive.AudioRecorderComponent do
      socket
      |> assign(:recording_state, :idle)
      |> assign(:recording_duration, 0)
-     |> assign(:transcription_status, nil)}
+     |> assign(:transcription_status, nil)
+     |> push_event("cancel-audio-recording", %{})}
   end
 
   @impl true
@@ -167,23 +212,12 @@ defmodule PlanningPokerWeb.PlanningSessionLive.AudioRecorderComponent do
      |> push_event("request-audio-data", %{})}
   end
 
-  @impl true
-  def handle_event("audio_data", %{"data" => base64_data, "mime_type" => mime_type}, socket) do
-    # Received audio data from JavaScript, send to parent for processing
-    send(self(), {:process_audio_recording, base64_data, mime_type, socket.assigns.id})
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_event("update_duration", %{"duration" => duration}, socket) do
-    {:noreply, assign(socket, :recording_duration, duration)}
-  end
-
-  @impl true
-  def handle_event("recording_complete", %{"blob_url" => _blob_url}, socket) do
-    # Recording has been captured and is ready to send
-    {:noreply, assign(socket, :recording_state, :stopped)}
-  end
+  # Note: The following events are handled in the parent LiveView (Show.ex)
+  # because JavaScript hooks send events to the parent, not to components:
+  # - update_duration
+  # - recording_complete
+  # - recording_error
+  # - audio_data
 
   # Public functions for parent LiveView to update state
 

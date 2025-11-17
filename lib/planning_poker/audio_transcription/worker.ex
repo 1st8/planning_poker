@@ -83,11 +83,15 @@ defmodule PlanningPoker.AudioTranscription.Worker do
       # Step 2: Transcribe the audio file
       transcription_start = System.monotonic_time(:millisecond)
 
-      %{results: [%{text: transcription}]} =
-        Nx.Serving.run(serving, {:file, audio_path})
+      result = Nx.Serving.run(serving, {:file, audio_path})
+      Logger.debug("Whisper raw result: #{inspect(result)}")
+
+      # Extract transcription text from chunks
+      transcription = extract_transcription_text(result)
 
       transcription_time = System.monotonic_time(:millisecond) - transcription_start
       Logger.info("Transcription completed in #{transcription_time}ms")
+      Logger.info("Transcribed text: #{inspect(transcription)}")
 
       # Step 3: Extract issue identifiers and prepare comment
       {project_id, issue_iid} = extract_issue_identifiers(issue)
@@ -114,6 +118,27 @@ defmodule PlanningPoker.AudioTranscription.Worker do
       e ->
         Logger.error("Transcription failed: #{Exception.format(:error, e, __STACKTRACE__)}")
         {:error, {:transcription_failed, e}}
+    end
+  end
+
+  defp extract_transcription_text(result) do
+    # Handle different Bumblebee return formats
+    case result do
+      # New format (Bumblebee 0.5+): %{chunks: [%{text: "..."}, ...]}
+      %{chunks: chunks} when is_list(chunks) ->
+        chunks
+        |> Enum.map(& &1.text)
+        |> Enum.join("")
+        |> String.trim()
+
+      # Old format (legacy): %{results: [%{text: "..."}]}
+      %{results: [%{text: text}]} ->
+        String.trim(text)
+
+      # Fallback
+      _ ->
+        Logger.warning("Unexpected transcription result format: #{inspect(result)}")
+        "Transcription failed: unexpected format"
     end
   end
 

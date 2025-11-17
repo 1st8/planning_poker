@@ -144,7 +144,7 @@ defmodule PlanningPoker.AudioTranscription.ModelServer do
 
       # Create the speech-to-text serving
       serving =
-        Bumblebee.Audio.speech_to_text(
+        Bumblebee.Audio.speech_to_text_whisper(
           model_info,
           featurizer,
           tokenizer,
