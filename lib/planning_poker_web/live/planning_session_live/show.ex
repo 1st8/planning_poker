@@ -2,6 +2,8 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
   use PlanningPokerWeb, :live_view
 
   alias PlanningPoker.Planning
+  alias PlanningPoker.AudioTranscription.Worker, as: TranscriptionWorker
+  alias PlanningPokerWeb.PlanningSessionLive.AudioRecorderComponent
 
   require Logger
 
@@ -25,6 +27,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
      |> assign_title()
      |> assign(:participants, Planning.get_participants!(id))
      |> assign(:current_participant, participant)
+     |> assign(:token, token)
      |> assign(:personal_notes, %{})}
   end
 
@@ -80,6 +83,37 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
 
   def handle_event("sync_notes", %{"notes" => notes}, socket) do
     {:noreply, assign(socket, :personal_notes, notes)}
+  end
+
+  # Audio recorder JavaScript hook events (forwarded to AudioRecorderComponent)
+  def handle_event("update_duration", %{"duration" => duration}, socket) do
+    send_update(AudioRecorderComponent, id: "audio-recorder", recording_duration: duration)
+    {:noreply, socket}
+  end
+
+  def handle_event("recording_complete", _params, socket) do
+    send_update(AudioRecorderComponent,
+      id: "audio-recorder",
+      recording_state: :stopped
+    )
+
+    {:noreply, socket}
+  end
+
+  def handle_event("recording_error", %{"error" => error_message}, socket) do
+    send_update(AudioRecorderComponent,
+      id: "audio-recorder",
+      recording_state: :error,
+      transcription_status: error_message
+    )
+
+    {:noreply, socket}
+  end
+
+  def handle_event("audio_data", %{"data" => base64_data, "mime_type" => mime_type}, socket) do
+    # Received audio data from JavaScript, process it
+    send(self(), {:process_audio_recording, base64_data, mime_type, "audio-recorder"})
+    {:noreply, socket}
   end
 
   def handle_event("change_mode", _value, socket) do
@@ -186,6 +220,136 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
   def handle_info(:die, socket) do
     Process.exit(self(), :normal)
     {:noreply, socket}
+  end
+
+  # Audio recording upload and transcription handlers
+
+  def handle_info({:process_audio_recording, base64_data, mime_type, _component_id}, socket) do
+    # This message is sent by the AudioRecorderComponent with base64-encoded audio data
+    # Decode and save the file, then start transcription
+
+    try do
+      # Decode base64 data
+      binary_data = Base.decode64!(base64_data)
+
+      # Create upload directory if it doesn't exist
+      upload_dir =
+        Path.join(["priv", "static", "uploads", "audio", socket.assigns.planning_session.id])
+
+      File.mkdir_p!(upload_dir)
+
+      # Generate unique filename with appropriate extension
+      timestamp = System.system_time(:millisecond)
+      ext = mime_type_to_extension(mime_type)
+      audio_path = Path.join(upload_dir, "#{timestamp}#{ext}")
+
+      # Write the binary data to file
+      File.write!(audio_path, binary_data)
+
+      Logger.info("Audio file saved: #{audio_path} (#{byte_size(binary_data)} bytes)")
+
+      # Start transcription task
+      issue = socket.assigns.planning_session.current_issue
+      token = socket.assigns.token
+      user_name = socket.assigns.current_participant.name
+
+      task =
+        TranscriptionWorker.transcribe_and_post(
+          audio_path: audio_path,
+          issue: issue,
+          token: token,
+          user_name: user_name
+        )
+
+      # Update component to show "transcribing" state
+      AudioRecorderComponent.set_transcribing(socket, "audio-recorder")
+
+      # Store task ref to handle completion
+      {:noreply, assign(socket, :transcription_task_ref, task.ref)}
+    rescue
+      e ->
+        Logger.error("Failed to process audio recording: #{inspect(e)}")
+        AudioRecorderComponent.set_error(socket, "audio-recorder", "Failed to save recording")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_info({ref, result}, socket)
+      when is_map_key(socket.assigns, :transcription_task_ref) and
+           :erlang.map_get(:transcription_task_ref, socket.assigns) == ref do
+    # Transcription task completed
+    Process.demonitor(ref, [:flush])
+
+    socket =
+      case result do
+        {:ok, transcription} ->
+          # Success! Update component
+          AudioRecorderComponent.set_success(socket, "audio-recorder")
+          Logger.info("Audio transcription and posting completed successfully")
+
+          # For mock provider in dev mode, also append to personal notes
+          socket = maybe_append_to_personal_notes(socket, transcription)
+          socket
+
+        {:error, reason} ->
+          # Error - show to user
+          error_msg = format_transcription_error(reason)
+          AudioRecorderComponent.set_error(socket, "audio-recorder", error_msg)
+          Logger.error("Audio transcription failed: #{inspect(reason)}")
+          socket
+      end
+
+    {:noreply, assign(socket, :transcription_task_ref, nil)}
+  end
+
+  def handle_info({:DOWN, ref, :process, _pid, reason}, socket)
+      when is_map_key(socket.assigns, :transcription_task_ref) and
+           :erlang.map_get(:transcription_task_ref, socket.assigns) == ref do
+    # Transcription task crashed
+    Logger.error("Transcription task crashed: #{inspect(reason)}")
+    AudioRecorderComponent.set_error(socket, "audio-recorder", "Transcription failed unexpectedly")
+
+    {:noreply, assign(socket, :transcription_task_ref, nil)}
+  end
+
+  def handle_info({:reset_recorder, component_id}, socket) do
+    # Reset the recorder component to idle state after success
+    send_update(AudioRecorderComponent, id: component_id, recording_state: :idle, transcription_status: nil)
+    {:noreply, socket}
+  end
+
+  defp mime_type_to_extension(mime_type) do
+    case mime_type do
+      "audio/webm" <> _ -> ".webm"
+      "audio/ogg" <> _ -> ".ogg"
+      "audio/mp4" -> ".m4a"
+      "audio/mpeg" -> ".mp3"
+      "audio/wav" -> ".wav"
+      _ -> ".webm"
+    end
+  end
+
+  defp format_transcription_error({:gitlab_post_failed, _}), do: "Failed to post comment to GitLab"
+  defp format_transcription_error({:transcription_failed, _}), do: "Failed to transcribe audio"
+  defp format_transcription_error(_), do: "An unexpected error occurred"
+
+  defp maybe_append_to_personal_notes(socket, transcription) do
+    # Only append to personal notes when using mock provider in development
+    is_mock_provider = PlanningPoker.IssueProvider.get_provider() == PlanningPoker.IssueProviders.Mock
+    is_dev = Application.get_env(:planning_poker, :env) != :prod
+
+    if is_mock_provider and is_dev do
+      issue_id = socket.assigns.planning_session.current_issue["id"]
+      formatted_transcription = "\n\n🎙️ Voice Comment:\n#{transcription}"
+
+      # Push event to client to append transcription to personal notes
+      push_event(socket, "append_to_personal_notes", %{
+        issue_id: issue_id,
+        text: formatted_transcription
+      })
+    else
+      socket
+    end
   end
 
   def assign_title(socket) do

@@ -2,6 +2,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.VotingComponent do
   use PlanningPokerWeb, :live_component
 
   alias PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
+  alias PlanningPokerWeb.PlanningSessionLive.AudioRecorderComponent
 
   def render(assigns) do
     ~H"""
@@ -25,6 +26,14 @@ defmodule PlanningPokerWeb.PlanningSessionLive.VotingComponent do
           current_user_id={@current_user_id}
           session_id={@session_id}
           participants={@participants}
+        />
+
+        <!-- Audio Recorder -->
+        <.live_component
+          module={AudioRecorderComponent}
+          id="audio-recorder"
+          issue={@issue}
+          session_id={@session_id}
         />
 
         <:controls>

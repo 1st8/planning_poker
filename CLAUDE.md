@@ -28,12 +28,33 @@ Planning Poker is a Phoenix LiveView application that enables distributed teams 
 - `MagicEstimationComponent`: Drag-and-drop interface with sortable issue lists
 - `ParticipantsListComponent`: Real-time participant presence tracking
 - `VotingControlsComponent`: Session flow control buttons
+- `AudioRecorderComponent`: Voice comment recording with automatic transcription (GitLab only)
+
+**Audio Transcription System (`lib/planning_poker/audio_transcription/`)**
+- `ModelServer`: Lazy-loading GenServer for Whisper AI model management
+  - Downloads model once (~290MB) to `~/.cache/huggingface/`
+  - Keeps model in memory for 30 minutes after last use
+  - Automatically unloads to conserve memory during idle periods
+- `Worker`: Background transcription workflow orchestrator
+  - Processes audio files via Task.Supervisor
+  - Transcribes using Whisper (openai/whisper-base)
+  - Posts transcriptions to GitLab issues as comments
+  - Handles errors gracefully with user feedback
+- `FileCleanup`: Delayed audio file cleanup service
+  - Schedules files for deletion 2 hours after transcription
+  - Allows debugging and potential re-processing
+  - Tracks scheduled cleanups and handles errors
 
 **Issue Provider Adapters (`lib/planning_poker/issue_providers/`)**
 - Pluggable adapter pattern for different issue tracking systems
-- `IssueProvider` behavior defines common interface: `client/1`, `fetch_issues/2`, `fetch_issue/3`
-- `Gitlab` adapter: Integrates with GitLab's GraphQL API, OAuth authentication
-- `Mock` adapter: In-memory provider for local development, simple username-based "authentication"
+- `IssueProvider` behavior defines common interface: `client/1`, `fetch_issues/2`, `fetch_issue/3`, `update_issue/4`, `post_comment/4`
+- `Gitlab` adapter: Integrates with GitLab's GraphQL API and REST API
+  - Uses GraphQL for fetching issues
+  - Uses REST API for updating issues and posting comments
+  - OAuth authentication with `api` scope required
+- `Mock` adapter: In-memory provider for local development
+  - Simple username-based "authentication"
+  - Simulates all GitLab API operations including comment posting
 - Configured via `ISSUE_PROVIDER` environment variable (defaults to `mock` in dev/test, `gitlab` in prod)
 
 **Integration Points**
@@ -94,6 +115,72 @@ npm run e2e:debug
 ```
 
 Tests automatically start the Phoenix server on port 4004 in e2e mode.
+
+### Voice Comments with Audio Transcription
+
+The application supports recording voice comments during planning sessions, which are automatically transcribed and posted to GitLab issues.
+
+**Feature Overview:**
+- Available during voting/planning mode (GitLab provider only)
+- Records audio directly in the browser using MediaRecorder API
+- Transcribes audio using OpenAI Whisper (base model)
+- Posts transcription as a comment to the current GitLab issue
+- Automatically cleans up audio files after 2 hours
+
+**Usage:**
+1. Navigate to a planning session and start voting on an issue
+2. Click "Kommentar aufnehmen" (Record Comment) button
+3. Grant microphone access when prompted
+4. Record your voice comment (up to 10 minutes, 50MB max)
+5. Click "Stop" when finished
+6. Review the duration, then click "Senden" (Send)
+7. Wait for transcription to complete (~5-30 seconds depending on length)
+8. Transcription will be posted to the GitLab issue automatically
+
+**Technical Details:**
+- **Audio Formats Supported**: WebM/Opus (preferred), OGG/Opus, MP4, MPEG, WAV
+- **Whisper Model**: `openai/whisper-base` (~290MB, good balance of speed/accuracy)
+- **Model Caching**: Downloads once to `~/.cache/huggingface/`, stays in memory for 30 min
+- **File Storage**: Temporary files in `priv/static/uploads/audio/{session_id}/`
+- **Cleanup**: Files deleted 2 hours after transcription
+- **Languages**: Whisper supports 97 languages automatically
+
+**Configuration:**
+
+Audio transcription settings in `config/config.exs`:
+
+```elixir
+config :planning_poker, :audio_transcription,
+  whisper_model: "openai/whisper-base",        # Model name from HuggingFace
+  max_audio_duration_seconds: 600,             # 10 minutes max
+  max_file_size_mb: 50,                        # 50MB max file size
+  model_idle_timeout_minutes: 30,              # Keep model in memory
+  file_cleanup_delay_hours: 2                  # Delay before file deletion
+```
+
+**Requirements:**
+- **Browser**: Chrome, Firefox, Safari, or Edge (any browser with MediaRecorder API)
+- **Permissions**: Microphone access required
+- **GitLab**: OAuth token must have `api` scope
+- **Server**: Elixir/Erlang with EXLA support (CPU or GPU)
+- **Memory**: ~500MB RAM for model (when loaded)
+- **Disk**: ~290MB for cached model files
+
+**First-Time Usage:**
+On first voice comment, the system will:
+1. Download Whisper base model (~290MB) from HuggingFace
+2. This may take 1-5 minutes depending on connection speed
+3. Model is cached permanently; subsequent uses are fast
+4. Model loads into memory on first transcription request
+5. Model stays in memory for 30 minutes, then auto-unloads
+
+**Troubleshooting:**
+- **"Microphone access denied"**: Grant permission in browser settings
+- **"No microphone found"**: Connect a microphone and refresh
+- **"Transcription failed"**: Check server logs for Whisper errors
+- **"Failed to post comment"**: Verify GitLab token has `api` scope
+- **Slow transcription**: First use downloads model; subsequent uses are faster
+- **Model won't load**: Check `~/.cache/huggingface/` has write permissions
 
 ---
 

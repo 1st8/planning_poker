@@ -18,6 +18,8 @@ defmodule PlanningPoker.Application do
       # Start a worker by calling: PlanningPoker.Worker.start_link(arg)
       # {PlanningPoker.Worker, arg},
       {Task.Supervisor, name: PlanningPoker.TaskSupervisor},
+      PlanningPoker.AudioTranscription.ModelServer,
+      PlanningPoker.AudioTranscription.FileCleanup,
       {Registry, [name: PlanningPoker.PlanningSession.Registry, keys: :unique]},
       {DynamicSupervisor, name: PlanningPoker.PlanningSession.Supervisor, strategy: :one_for_one},
       # Start to serve requests, typically the last entry

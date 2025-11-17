@@ -128,6 +128,34 @@ defmodule PlanningPoker.IssueProvider do
             ) :: {:ok, map()} | {:error, any()}
 
   @doc """
+  Posts a comment (note) to an issue.
+
+  ## Arguments
+
+  - `client` - The authenticated client from `client/1`
+  - `project_id` - The project identifier (format varies by provider)
+  - `issue_iid` - The issue internal ID (e.g., "123" for #123)
+  - `comment_text` - The comment body text (markdown supported)
+
+  ## Returns
+
+  - `{:ok, comment}` where `comment` is the created comment/note map
+  - `{:error, reason}` on failure
+
+  ## Example
+
+      iex> client = IssueProvider.client(token: "token")
+      iex> IssueProvider.post_comment(client, "1st8/planning_poker", "42", "Great idea!")
+      {:ok, %{"id" => 123, "body" => "Great idea!", ...}}
+  """
+  @callback post_comment(
+              client :: any(),
+              project_id :: String.t(),
+              issue_iid :: String.t(),
+              comment_text :: String.t()
+            ) :: {:ok, map()} | {:error, any()}
+
+  @doc """
   Returns the configured issue provider module.
 
   Checks the `ISSUE_PROVIDER` environment variable, falling back to defaults
@@ -192,5 +220,14 @@ defmodule PlanningPoker.IssueProvider do
   """
   def update_issue(client, project_id, issue_iid, attrs) do
     get_provider().update_issue(client, project_id, issue_iid, attrs)
+  end
+
+  @doc """
+  Posts a comment to an issue using the configured provider.
+
+  This is a convenience function that delegates to `get_provider().post_comment(client, project_id, issue_iid, comment_text)`.
+  """
+  def post_comment(client, project_id, issue_iid, comment_text) do
+    get_provider().post_comment(client, project_id, issue_iid, comment_text)
   end
 end

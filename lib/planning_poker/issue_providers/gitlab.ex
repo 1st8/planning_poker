@@ -257,4 +257,50 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
       epic -> Map.put(result, "epic", %{"title" => epic["title"], "reference" => epic["reference"]})
     end
   end
+
+  @doc """
+  Posts a comment (note) to a GitLab issue.
+
+  Uses the REST API endpoint: POST /projects/:id/issues/:issue_iid/notes
+
+  ## Arguments
+
+  - `client` - Tesla client from `client/1`
+  - `project_id` - Project ID or path (e.g., "1st8/planning_poker" or "42")
+  - `issue_iid` - Issue internal ID (e.g., "123" for #123)
+  - `comment_text` - The comment body text (markdown supported)
+
+  ## Returns
+
+  - `{:ok, note}` where note is the created note/comment map
+  - `{:error, reason}` on failure
+
+  ## Example
+
+      iex> client = Gitlab.client(token: "oauth-token")
+      iex> Gitlab.post_comment(client, "1st8/planning_poker", "42", "🎙️ Voice comment transcription...")
+      {:ok, %{"id" => 456, "body" => "🎙️ Voice comment...", "author" => %{...}, ...}}
+  """
+  @impl PlanningPoker.IssueProvider
+  def post_comment(client, project_id, issue_iid, comment_text) do
+    # URL-encode the project_id to handle paths like "1st8/planning_poker"
+    encoded_project_id = URI.encode_www_form(project_id)
+    path = "/api/v4/projects/#{encoded_project_id}/issues/#{issue_iid}/notes"
+
+    case Tesla.post(client, path, %{body: comment_text}) do
+      {:ok, env} ->
+        note = env.body
+
+        if note do
+          Logger.debug("Posted comment to issue #{issue_iid} in project #{project_id}")
+          {:ok, note}
+        else
+          {:error, :invalid_response}
+        end
+
+      {:error, reason} = error ->
+        Logger.error("Failed to post comment to issue #{issue_iid}: #{inspect(reason)}")
+        error
+    end
+  end
 end

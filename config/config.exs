@@ -72,6 +72,17 @@ config :ueberauth, Ueberauth,
     gitlab: {Ueberauth.Strategy.Gitlab, [default_scope: "api"]}
   ]
 
+# Audio transcription configuration
+config :planning_poker, :audio_transcription,
+  whisper_model: "openai/whisper-base",
+  max_audio_duration_seconds: 600,
+  max_file_size_mb: 50,
+  model_idle_timeout_minutes: 30,
+  file_cleanup_delay_hours: 2
+
+# Configure Nx to use EXLA compiler for better performance
+config :nx, :default_backend, EXLA.Backend
+
 if config_env() in [:dev, :test] do
   if File.exists?(Path.join(__DIR__, ".env.exs")) do
     import_config ".env.exs"
