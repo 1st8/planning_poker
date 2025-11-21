@@ -252,12 +252,9 @@ defmodule PlanningPoker.IssueSection do
 
   # Private helpers
 
-  @doc """
-  Splits markdown on double newlines while preserving HTML comments and details tags.
-
-  HTML comments (<!-- ... -->) and <details> tags should not be split even if they
-  contain double newlines internally.
-  """
+  # Splits markdown on double newlines while preserving HTML comments and details tags.
+  # HTML comments (<!-- ... -->) and <details> tags should not be split even if they
+  # contain double newlines internally.
   defp smart_split_preserving_blocks(markdown) do
     # Pattern to match HTML comments and details blocks
     # This regex captures:
@@ -279,7 +276,7 @@ defmodule PlanningPoker.IssueSection do
       {marked_text, placeholder_map} =
         blocks
         |> Enum.with_index()
-        |> Enum.reduce({markdown, %{}}, fn {{start, length, block}, index}, {text, map} ->
+        |> Enum.reduce({markdown, %{}}, fn {{_start, _length, block}, index}, {text, map} ->
           placeholder = "___BLOCK_#{index}___"
           new_text = String.replace(text, block, placeholder, global: false)
           {new_text, Map.put(map, placeholder, block)}

@@ -118,7 +118,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
                     </button>
                   <% end %>
                 <% end %>
-                
+
     <!-- Regular prose content -->
                 <div class={"section-content #{if section["deleted"], do: "line-through opacity-30"}"}>
                   <%= if section["content"] == "" do %>
@@ -264,8 +264,9 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
         smart: true,
         relaxed_tasklist_matching: true
       ],
-      render: [
-        unsafe_: false
+      sanitize: [
+        add_tags: ["details", "summary", "input"],
+        add_tag_attributes: %{"input" => ["type", "checked", "disabled"]}
       ]
     )
   rescue
