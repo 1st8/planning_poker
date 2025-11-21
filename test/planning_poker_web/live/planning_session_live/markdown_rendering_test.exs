@@ -1,6 +1,10 @@
 defmodule PlanningPokerWeb.PlanningSessionLive.MarkdownRenderingTest do
   use ExUnit.Case, async: true
 
+  alias PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
+
+  defp render_markdown(content), do: CollaborativeIssueEditorComponent.render_markdown(content)
+
   describe "MDEx markdown rendering with task lists" do
     test "renders unchecked task list items as disabled checkboxes" do
       markdown = "- [ ] Incomplete task"
@@ -173,30 +177,4 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MarkdownRenderingTest do
     end
   end
 
-  # Helper function that mimics the one in CollaborativeIssueEditorComponent
-  defp render_markdown(content) do
-    MDEx.to_html!(content,
-      extension: [
-        strikethrough: true,
-        table: true,
-        autolink: true,
-        tasklist: true,
-        footnotes: true
-      ],
-      parse: [
-        smart: true,
-        relaxed_tasklist_matching: true
-      ],
-      render: [
-        unsafe_: true
-      ],
-      sanitize: [
-        add_tags: ["details", "summary", "input"],
-        add_tag_attributes: %{"input" => ["type", "checked", "disabled"]}
-      ]
-    )
-  rescue
-    _ ->
-      "<p>Error rendering markdown</p>"
-  end
 end

@@ -250,11 +250,10 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
 
   # Helpers
 
-  defp render_markdown(content) do
+  def render_markdown(content) do
     MDEx.to_html!(content,
       extension: [
         strikethrough: true,
-        tagfilter: true,
         table: true,
         autolink: true,
         tasklist: true,
@@ -263,6 +262,9 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
       parse: [
         smart: true,
         relaxed_tasklist_matching: true
+      ],
+      render: [
+        unsafe_: true
       ],
       sanitize: [
         add_tags: ["details", "summary", "input"],
