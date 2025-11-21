@@ -25,7 +25,7 @@ defmodule PlanningPoker.IssueSection do
 
   def parse_into_sections(markdown) when is_binary(markdown) do
     markdown
-    |> String.split("\n\n")
+    |> smart_split_preserving_blocks()
     |> Enum.map(&String.trim/1)
     |> Enum.reject(&(&1 == ""))
     |> Enum.with_index()
@@ -252,6 +252,51 @@ defmodule PlanningPoker.IssueSection do
 
   # Private helpers
 
+  @doc """
+  Splits markdown on double newlines while preserving HTML comments and details tags.
+
+  HTML comments (<!-- ... -->) and <details> tags should not be split even if they
+  contain double newlines internally.
+  """
+  defp smart_split_preserving_blocks(markdown) do
+    # Pattern to match HTML comments and details blocks
+    # This regex captures:
+    # 1. HTML comments: <!-- ... -->
+    # 2. Details blocks: <details>...</details>
+    block_pattern = ~r/<!--[\s\S]*?-->|<details>[\s\S]*?<\/details>/
+
+    # Find all block matches with their positions
+    blocks = Regex.scan(block_pattern, markdown, return: :index)
+    |> Enum.map(fn [{start, length}] ->
+      {start, length, String.slice(markdown, start, length)}
+    end)
+
+    # If no blocks found, use simple split
+    if Enum.empty?(blocks) do
+      String.split(markdown, "\n\n")
+    else
+      # Replace blocks with placeholders
+      {marked_text, placeholder_map} =
+        blocks
+        |> Enum.with_index()
+        |> Enum.reduce({markdown, %{}}, fn {{start, length, block}, index}, {text, map} ->
+          placeholder = "___BLOCK_#{index}___"
+          new_text = String.replace(text, block, placeholder, global: false)
+          {new_text, Map.put(map, placeholder, block)}
+        end)
+
+      # Split the marked text
+      marked_text
+      |> String.split("\n\n")
+      |> Enum.map(fn section ->
+        # Restore placeholders with original blocks
+        Enum.reduce(placeholder_map, section, fn {placeholder, block}, acc ->
+          String.replace(acc, placeholder, block)
+        end)
+      end)
+    end
+  end
+
   defp find_section(sections, section_id) do
     Enum.find(sections, fn s -> s["id"] == section_id end)
   end
@@ -272,10 +317,10 @@ defmodule PlanningPoker.IssueSection do
         sections
 
       section ->
-        # Split content on double newlines
+        # Split content on double newlines (preserving blocks)
         segments =
           section["content"]
-          |> String.split("\n\n")
+          |> smart_split_preserving_blocks()
           |> Enum.map(&String.trim/1)
           |> Enum.reject(&(&1 == ""))
 
