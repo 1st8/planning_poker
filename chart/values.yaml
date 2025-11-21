@@ -38,6 +38,7 @@ podAnnotations: {}
 
 podSecurityContext:
   runAsNonRoot: true
+  runAsUser: 65534
 
 securityContext: {}
 
