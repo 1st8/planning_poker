@@ -114,12 +114,70 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MarkdownRenderingTest do
     end
   end
 
+  describe "HTML sanitization" do
+    test "allows details and summary tags" do
+      markdown = """
+      <details>
+      <summary>Click to expand</summary>
+
+      Hidden content here.
+
+      </details>
+      """
+
+      html = render_markdown(markdown)
+
+      assert html =~ "<details>"
+      assert html =~ "<summary>"
+      assert html =~ "Click to expand"
+      assert html =~ "Hidden content here."
+      assert html =~ "</summary>"
+      assert html =~ "</details>"
+    end
+
+    test "filters out script tags" do
+      markdown = """
+      Some text
+
+      <script>alert('xss')</script>
+
+      More text
+      """
+
+      html = render_markdown(markdown)
+
+      refute html =~ "<script>"
+      refute html =~ "alert('xss')"
+      refute html =~ "</script>"
+      assert html =~ "Some text"
+      assert html =~ "More text"
+    end
+
+    test "filters out other dangerous tags like iframe" do
+      markdown = "<iframe src=\"https://evil.com\"></iframe>"
+
+      html = render_markdown(markdown)
+
+      refute html =~ "<iframe"
+      refute html =~ "evil.com"
+    end
+
+    test "filters out event handlers in allowed tags" do
+      markdown = "<details onclick=\"alert('xss')\"><summary>Title</summary>Content</details>"
+
+      html = render_markdown(markdown)
+
+      assert html =~ "<details>"
+      refute html =~ "onclick"
+      refute html =~ "alert"
+    end
+  end
+
   # Helper function that mimics the one in CollaborativeIssueEditorComponent
   defp render_markdown(content) do
     MDEx.to_html!(content,
       extension: [
         strikethrough: true,
-        tagfilter: true,
         table: true,
         autolink: true,
         tasklist: true,
@@ -130,7 +188,11 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MarkdownRenderingTest do
         relaxed_tasklist_matching: true
       ],
       render: [
-        unsafe_: false
+        unsafe_: true
+      ],
+      sanitize: [
+        add_tags: ["details", "summary", "input"],
+        add_tag_attributes: %{"input" => ["type", "checked", "disabled"]}
       ]
     )
   rescue
