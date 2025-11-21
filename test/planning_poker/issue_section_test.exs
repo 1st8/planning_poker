@@ -138,6 +138,28 @@ defmodule PlanningPoker.IssueSectionTest do
 
       assert Enum.at(sections, 2)["content"] == "Last paragraph."
     end
+
+    test "preserves details block with screenshot and following content" do
+      markdown =
+        "Siehe Screenshot\n\n<details>\n<summary>Screenshoht Webansicht</summary>\n\n![image](/uploads/27f23ec3f83bad30e93ccd314942f547/image.png)\n\n</details>\n\n\n---\n\n### Akzeptanzkriterien\n\n- [ ] Anpassung der Beschriftung im PDF und in der Webansicht (Staging und Prod)"
+
+      sections = IssueSection.parse_into_sections(markdown)
+
+      # Should be: "Siehe Screenshot", details block, "---", "### Akzeptanzkriterien", task list
+      assert Enum.at(sections, 0)["content"] == "Siehe Screenshot"
+
+      details_section = Enum.at(sections, 1)
+      assert details_section["content"] =~ "<details>"
+      assert details_section["content"] =~ "<summary>Screenshoht Webansicht</summary>"
+      assert details_section["content"] =~ "![image]"
+      assert details_section["content"] =~ "</details>"
+
+      # The remaining content after details should be separate sections
+      remaining_contents = sections |> Enum.drop(2) |> Enum.map(& &1["content"])
+      assert "---" in remaining_contents
+      assert "### Akzeptanzkriterien" in remaining_contents
+      assert Enum.any?(remaining_contents, &(&1 =~ "Anpassung der Beschriftung"))
+    end
   end
 
   describe "lock_section/3" do
