@@ -252,15 +252,16 @@ defmodule PlanningPoker.IssueSection do
 
   # Private helpers
 
-  # Splits markdown on double newlines while preserving HTML comments and details tags.
-  # HTML comments (<!-- ... -->) and <details> tags should not be split even if they
-  # contain double newlines internally.
+  # Splits markdown on double newlines while preserving HTML comments, details tags, and code blocks.
+  # HTML comments (<!-- ... -->), <details> tags, and fenced code blocks (```...```)
+  # should not be split even if they contain double newlines internally.
   defp smart_split_preserving_blocks(markdown) do
-    # Pattern to match HTML comments and details blocks
+    # Pattern to match HTML comments, details blocks, and code blocks
     # This regex captures:
     # 1. HTML comments: <!-- ... -->
     # 2. Details blocks: <details>...</details>
-    block_pattern = ~r/<!--[\s\S]*?-->|<details>[\s\S]*?<\/details>/
+    # 3. Fenced code blocks: ```...``` (with optional language specifier)
+    block_pattern = ~r/<!--[\s\S]*?-->|<details>[\s\S]*?<\/details>|```[\s\S]*?```/
 
     # Find all block matches with their positions
     blocks = Regex.scan(block_pattern, markdown, return: :index)

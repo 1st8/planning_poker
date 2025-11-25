@@ -160,6 +160,156 @@ defmodule PlanningPoker.IssueSectionTest do
       assert "### Akzeptanzkriterien" in remaining_contents
       assert Enum.any?(remaining_contents, &(&1 =~ "Anpassung der Beschriftung"))
     end
+
+    test "preserves code blocks as single section" do
+      markdown = """
+      Paragraph before.
+
+      ```elixir
+      def hello do
+        IO.puts("Hello World")
+
+        IO.puts("Multiple lines")
+      end
+      ```
+
+      Paragraph after.
+      """
+
+      sections = IssueSection.parse_into_sections(markdown)
+
+      assert length(sections) == 3
+      assert Enum.at(sections, 0)["content"] == "Paragraph before."
+
+      code_section = Enum.at(sections, 1)
+      assert code_section["content"] =~ "```elixir"
+      assert code_section["content"] =~ "def hello do"
+      assert code_section["content"] =~ "IO.puts(\"Multiple lines\")"
+      assert code_section["content"] =~ "```"
+
+      assert Enum.at(sections, 2)["content"] == "Paragraph after."
+    end
+
+    test "preserves code blocks without language specifier" do
+      markdown = """
+      Text before.
+
+      ```
+      some code here
+
+      with blank lines
+      ```
+
+      Text after.
+      """
+
+      sections = IssueSection.parse_into_sections(markdown)
+
+      assert length(sections) == 3
+      assert Enum.at(sections, 0)["content"] == "Text before."
+
+      code_section = Enum.at(sections, 1)
+      assert code_section["content"] =~ "```"
+      assert code_section["content"] =~ "some code here"
+      assert code_section["content"] =~ "with blank lines"
+
+      assert Enum.at(sections, 2)["content"] == "Text after."
+    end
+
+    test "preserves multiple code blocks in same markdown" do
+      markdown = """
+      First paragraph.
+
+      ```javascript
+      console.log("First block");
+
+      console.log("More code");
+      ```
+
+      Middle paragraph.
+
+      ```python
+      print("Second block")
+
+      print("With newlines")
+      ```
+
+      Last paragraph.
+      """
+
+      sections = IssueSection.parse_into_sections(markdown)
+
+      assert length(sections) == 5
+      assert Enum.at(sections, 0)["content"] == "First paragraph."
+
+      first_code = Enum.at(sections, 1)
+      assert first_code["content"] =~ "```javascript"
+      assert first_code["content"] =~ "First block"
+
+      assert Enum.at(sections, 2)["content"] == "Middle paragraph."
+
+      second_code = Enum.at(sections, 3)
+      assert second_code["content"] =~ "```python"
+      assert second_code["content"] =~ "Second block"
+
+      assert Enum.at(sections, 4)["content"] == "Last paragraph."
+    end
+
+    test "preserves inline code with backticks (not code blocks)" do
+      markdown = """
+      This paragraph has `inline code` in it.
+
+      Another paragraph with `more inline code`.
+      """
+
+      sections = IssueSection.parse_into_sections(markdown)
+
+      assert length(sections) == 2
+      assert Enum.at(sections, 0)["content"] == "This paragraph has `inline code` in it."
+      assert Enum.at(sections, 1)["content"] == "Another paragraph with `more inline code`."
+    end
+
+    test "preserves code blocks with mixed content (HTML, details, and code)" do
+      markdown = """
+      Introduction.
+
+      <!-- Comment with
+
+      newlines -->
+
+      ```ruby
+      def test
+
+        puts "code"
+      end
+      ```
+
+      <details>
+      <summary>Details</summary>
+
+      Content here.
+      </details>
+
+      Conclusion.
+      """
+
+      sections = IssueSection.parse_into_sections(markdown)
+
+      assert length(sections) == 5
+      assert Enum.at(sections, 0)["content"] == "Introduction."
+
+      comment_section = Enum.at(sections, 1)
+      assert comment_section["content"] =~ "<!--"
+
+      code_section = Enum.at(sections, 2)
+      assert code_section["content"] =~ "```ruby"
+      assert code_section["content"] =~ "def test"
+
+      details_section = Enum.at(sections, 3)
+      assert details_section["content"] =~ "<details>"
+
+      assert Enum.at(sections, 4)["content"] == "Conclusion."
+    end
   end
 
   describe "lock_section/3" do
