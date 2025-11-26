@@ -47,7 +47,9 @@ defmodule PlanningPoker.IssueSection do
   Returns `{:ok, updated_sections}` if the section was successfully locked,
   or `{:error, reason}` if the section is already locked by another user.
   """
-  def lock_section(sections, section_id, user_id) do
+  def lock_section(sections, section_id, user) do
+    user_id = user["id"] || user[:id]
+
     case find_section(sections, section_id) do
       nil ->
         {:error, :section_not_found}
@@ -57,12 +59,12 @@ defmodule PlanningPoker.IssueSection do
           nil ->
             updated_sections = update_section(sections, section_id, fn s ->
               s
-              |> Map.put("locked_by", user_id)
+              |> Map.put("locked_by", user)
               |> Map.put("content_at_lock", s["content"])
             end)
             {:ok, updated_sections}
 
-          ^user_id ->
+          %{"id" => ^user_id} ->
             {:ok, sections}  # Already locked by this user
 
           _other_user ->
@@ -86,8 +88,10 @@ defmodule PlanningPoker.IssueSection do
         {:error, :section_not_found}
 
       section ->
-        case section["locked_by"] do
-          ^user_id ->
+        locked_by_id = get_in(section, ["locked_by", "id"])
+
+        cond do
+          locked_by_id == user_id ->
             updated_sections = update_section(sections, section_id, fn s ->
               s
               |> Map.put("locked_by", nil)
@@ -97,10 +101,10 @@ defmodule PlanningPoker.IssueSection do
             split_sections = split_section_on_newlines(updated_sections, section_id)
             {:ok, split_sections}
 
-          nil ->
+          locked_by_id == nil ->
             {:ok, sections}  # Already unlocked
 
-          _other_user ->
+          true ->
             {:error, :not_lock_owner}
         end
     end
@@ -118,8 +122,10 @@ defmodule PlanningPoker.IssueSection do
         {:error, :section_not_found}
 
       section ->
-        case section["locked_by"] do
-          ^user_id ->
+        locked_by_id = get_in(section, ["locked_by", "id"])
+
+        cond do
+          locked_by_id == user_id ->
             updated_sections = update_section(sections, section_id, fn s ->
               content_to_restore = s["content_at_lock"] || s["content"]
               s
@@ -129,10 +135,10 @@ defmodule PlanningPoker.IssueSection do
             end)
             {:ok, updated_sections}
 
-          nil ->
+          locked_by_id == nil ->
             {:ok, sections}  # Already unlocked
 
-          _other_user ->
+          true ->
             {:error, :not_lock_owner}
         end
     end
@@ -149,17 +155,19 @@ defmodule PlanningPoker.IssueSection do
         {:error, :section_not_found}
 
       section ->
-        case section["locked_by"] do
-          ^user_id ->
+        locked_by_id = get_in(section, ["locked_by", "id"])
+
+        cond do
+          locked_by_id == user_id ->
             updated_sections = update_section(sections, section_id, fn s ->
               Map.put(s, "content", content)
             end)
             {:ok, updated_sections}
 
-          nil ->
+          locked_by_id == nil ->
             {:error, :section_not_locked}
 
-          _other_user ->
+          true ->
             {:error, :not_lock_owner}
         end
     end
@@ -178,8 +186,10 @@ defmodule PlanningPoker.IssueSection do
         {:error, :section_not_found}
 
       section ->
-        case section["locked_by"] do
-          ^user_id ->
+        locked_by_id = get_in(section, ["locked_by", "id"])
+
+        cond do
+          locked_by_id == user_id ->
             updated_sections = update_section(sections, section_id, fn s ->
               s
               |> Map.put("deleted", true)
@@ -187,10 +197,10 @@ defmodule PlanningPoker.IssueSection do
             end)
             {:ok, updated_sections}
 
-          nil ->
+          locked_by_id == nil ->
             {:error, :section_not_locked}
 
-          _other_user ->
+          true ->
             {:error, :not_lock_owner}
         end
     end

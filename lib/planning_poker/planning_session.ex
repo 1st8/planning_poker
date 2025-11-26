@@ -300,7 +300,8 @@ defmodule PlanningPoker.PlanningSession do
         {:keep_state, data, [{:reply, from, {:error, :no_current_issue}}]}
 
       issue ->
-        case IssueSection.lock_section(issue["sections"], section_id, user_id) do
+        user = get_user_from_presence(data.id, user_id)
+        case IssueSection.lock_section(issue["sections"], section_id, user) do
           {:ok, updated_sections} ->
             updated_issue = Map.put(issue, "sections", updated_sections)
             new_data = Map.put(data, :current_issue, updated_issue)
@@ -668,6 +669,22 @@ defmodule PlanningPoker.PlanningSession do
     """)
 
     {:keep_state, data}
+  end
+
+  defp get_user_from_presence(session_id, user_id) do
+    session_id
+    |> Planning.get_participants!()
+    |> Enum.find(fn p ->
+      (Map.get(p, :id) || Map.get(p, "id")) == user_id
+    end)
+    |> case do
+      nil -> %{"id" => user_id, "name" => "Unknown", "email" => ""}
+      user -> %{
+        "id" => Map.get(user, :id) || Map.get(user, "id"),
+        "name" => Map.get(user, :name) || Map.get(user, "name") || "Unknown",
+        "email" => Map.get(user, :email) || Map.get(user, "email") || ""
+      }
+    end
   end
 
   defp to_payload(state, data) do

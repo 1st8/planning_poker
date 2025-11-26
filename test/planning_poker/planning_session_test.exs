@@ -55,7 +55,7 @@ defmodule PlanningPoker.PlanningSessionTest do
       # Verify state was updated
       state = :gen_statem.call(pid, :get_state)
       section = Enum.find(state.current_issue["sections"], &(&1["id"] == "section-0"))
-      assert section["locked_by"] == "user-123"
+      assert section["locked_by"]["id"] == "user-123"
     end
 
     test "lock_section prevents locking a section locked by another user", %{pid: pid} do
@@ -129,7 +129,7 @@ defmodule PlanningPoker.PlanningSessionTest do
       assert_receive {:state_change, state}
       assert state.state == :voting
       section = Enum.find(state.current_issue["sections"], &(&1["id"] == "section-0"))
-      assert section["locked_by"] == "user-123"
+      assert section["locked_by"]["id"] == "user-123"
     end
 
     test "delete_section marks section as deleted when locked by user", %{pid: pid} do

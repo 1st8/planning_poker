@@ -3,6 +3,15 @@ defmodule PlanningPoker.IssueSectionTest do
 
   alias PlanningPoker.IssueSection
 
+  # Helper to create a user object from an ID
+  defp user(id, name \\ nil, email \\ nil) do
+    %{
+      "id" => id,
+      "name" => name || "User #{id}",
+      "email" => email || "#{id}@example.com"
+    }
+  end
+
   describe "parse_into_sections/1" do
     test "parses markdown into sections split by double newlines" do
       markdown = "First paragraph\n\nSecond paragraph\n\nThird paragraph"
@@ -323,36 +332,36 @@ defmodule PlanningPoker.IssueSectionTest do
     end
 
     test "locks an unlocked section", %{sections: sections} do
-      {:ok, updated} = IssueSection.lock_section(sections, "section-1", "user-123")
+      {:ok, updated} = IssueSection.lock_section(sections, "section-1", user("user-123"))
 
       section = Enum.find(updated, &(&1["id"] == "section-1"))
-      assert section["locked_by"] == "user-123"
+      assert section["locked_by"]["id"] == "user-123"
     end
 
     test "preserves content when locking", %{sections: sections} do
-      {:ok, updated} = IssueSection.lock_section(sections, "section-1", "user-123")
+      {:ok, updated} = IssueSection.lock_section(sections, "section-1", user("user-123"))
 
       section = Enum.find(updated, &(&1["id"] == "section-1"))
       assert section["content_at_lock"] == "Test"
     end
 
     test "allows same user to lock already locked section", %{sections: sections} do
-      {:ok, sections} = IssueSection.lock_section(sections, "section-1", "user-123")
-      {:ok, updated} = IssueSection.lock_section(sections, "section-1", "user-123")
+      {:ok, sections} = IssueSection.lock_section(sections, "section-1", user("user-123"))
+      {:ok, updated} = IssueSection.lock_section(sections, "section-1", user("user-123"))
 
       section = Enum.find(updated, &(&1["id"] == "section-1"))
-      assert section["locked_by"] == "user-123"
+      assert section["locked_by"]["id"] == "user-123"
     end
 
     test "prevents locking section locked by another user", %{sections: sections} do
-      {:ok, sections} = IssueSection.lock_section(sections, "section-1", "user-123")
-      result = IssueSection.lock_section(sections, "section-1", "user-456")
+      {:ok, sections} = IssueSection.lock_section(sections, "section-1", user("user-123"))
+      result = IssueSection.lock_section(sections, "section-1", user("user-456"))
 
       assert result == {:error, :section_locked}
     end
 
     test "returns error for non-existent section", %{sections: sections} do
-      result = IssueSection.lock_section(sections, "non-existent", "user-123")
+      result = IssueSection.lock_section(sections, "non-existent", user("user-123"))
 
       assert result == {:error, :section_not_found}
     end
@@ -361,7 +370,7 @@ defmodule PlanningPoker.IssueSectionTest do
   describe "unlock_section/3" do
     setup do
       sections = [
-        %{"id" => "section-1", "content" => "Test", "locked_by" => "user-123", "position" => 0, "content_at_lock" => "Original"},
+        %{"id" => "section-1", "content" => "Test", "locked_by" => user("user-123"), "position" => 0, "content_at_lock" => "Original"},
         %{"id" => "section-2", "content" => "Test 2", "locked_by" => nil, "position" => 1}
       ]
 
@@ -407,7 +416,7 @@ defmodule PlanningPoker.IssueSectionTest do
           "id" => "section-0",
           "content" => "My content\n\nHello World",
           "original_content" => "My content",
-          "locked_by" => "user-123",
+          "locked_by" => user("user-123"),
           "position" => 0,
           "deleted" => false
         }
@@ -426,7 +435,7 @@ defmodule PlanningPoker.IssueSectionTest do
           "id" => "section-0",
           "content" => "Part A\n\nPart B\n\nPart C",
           "original_content" => "Part A",
-          "locked_by" => "user-123",
+          "locked_by" => user("user-123"),
           "position" => 0,
           "deleted" => false
         }
@@ -446,7 +455,7 @@ defmodule PlanningPoker.IssueSectionTest do
           "id" => "section-0",
           "content" => "Part A\n\n\n\nPart B",
           "original_content" => "Part A",
-          "locked_by" => "user-123",
+          "locked_by" => user("user-123"),
           "position" => 0,
           "deleted" => false
         }
@@ -466,7 +475,7 @@ defmodule PlanningPoker.IssueSectionTest do
           "id" => "section-0",
           "content" => "Original\n\nNew content",
           "original_content" => "Original",
-          "locked_by" => "user-123",
+          "locked_by" => user("user-123"),
           "position" => 0,
           "deleted" => false
         }
@@ -486,7 +495,7 @@ defmodule PlanningPoker.IssueSectionTest do
           "id" => "section-0",
           "content" => "First\n\nSecond",
           "original_content" => "First",
-          "locked_by" => "user-123",
+          "locked_by" => user("user-123"),
           "position" => 0,
           "deleted" => false
         }
@@ -506,7 +515,7 @@ defmodule PlanningPoker.IssueSectionTest do
           "id" => "section-0",
           "content" => "Single line content",
           "original_content" => "Original",
-          "locked_by" => "user-123",
+          "locked_by" => user("user-123"),
           "position" => 0,
           "deleted" => false
         }
@@ -532,7 +541,7 @@ defmodule PlanningPoker.IssueSectionTest do
           "id" => "section-1",
           "content" => "Split A\n\nSplit B",
           "original_content" => "Split A",
-          "locked_by" => "user-123",
+          "locked_by" => user("user-123"),
           "position" => 1,
           "deleted" => false
         },
@@ -567,7 +576,7 @@ defmodule PlanningPoker.IssueSectionTest do
           "id" => "section-1",
           "content" => "Modified content",
           "content_at_lock" => "Original content",
-          "locked_by" => "user-123",
+          "locked_by" => user("user-123"),
           "position" => 0
         },
         %{
@@ -595,7 +604,7 @@ defmodule PlanningPoker.IssueSectionTest do
         %{
           "id" => "section-1",
           "content" => "Current content",
-          "locked_by" => "user-123",
+          "locked_by" => user("user-123"),
           "position" => 0
         }
       ]
@@ -629,7 +638,7 @@ defmodule PlanningPoker.IssueSectionTest do
   describe "update_section_content/4" do
     setup do
       sections = [
-        %{"id" => "section-1", "content" => "Old content", "locked_by" => "user-123", "position" => 0}
+        %{"id" => "section-1", "content" => "Old content", "locked_by" => user("user-123"), "position" => 0}
       ]
 
       {:ok, sections: sections}
@@ -671,7 +680,7 @@ defmodule PlanningPoker.IssueSectionTest do
         %{
           "id" => "section-1",
           "content" => "Test content",
-          "locked_by" => "user-123",
+          "locked_by" => user("user-123"),
           "position" => 0,
           "deleted" => false
         }

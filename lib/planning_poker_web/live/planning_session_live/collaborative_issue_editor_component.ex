@@ -13,17 +13,19 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
           <% is_edited =
             section["original_content"] == nil or section["content"] != section["original_content"]
 
+          locked_by_id = get_in(section, ["locked_by", "id"])
+
           is_locked_by_other =
-            section["locked_by"] != nil and section["locked_by"] != @current_user_id
+            locked_by_id != nil and locked_by_id != @current_user_id
 
           locked_by_user =
-            is_locked_by_other && Enum.find(@participants, fn p -> p.id == section["locked_by"] end) %>
+            is_locked_by_other && section["locked_by"] %>
           <div
             id={"section-#{section["id"]}"}
             class="section-wrapper relative group hover:bg-base-200/50 transition-colors -mx-8 px-8"
             data-section-id={section["id"]}
           >
-            <%= if section["locked_by"] == @current_user_id do %>
+            <%= if locked_by_id == @current_user_id do %>
               <!-- Edit mode: textarea swap -->
               <div class="edit-mode mb-4">
                 <textarea
@@ -147,8 +149,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
      socket
      |> assign(:issue, assigns.issue)
      |> assign(:current_user_id, assigns.current_user_id)
-     |> assign(:session_id, assigns.session_id)
-     |> assign(:participants, Map.get(assigns, :participants, []))}
+     |> assign(:session_id, assigns.session_id)}
   end
 
   @impl true
