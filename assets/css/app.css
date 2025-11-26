@@ -95,3 +95,8 @@
 body {
   @apply bg-base-300 min-h-screen;
 }
+
+/* Indent details content for better visual hierarchy */
+.section-content details > :not(summary) {
+  margin-left: 1rem;
+}

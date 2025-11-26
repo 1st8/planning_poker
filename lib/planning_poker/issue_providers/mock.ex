@@ -18,11 +18,12 @@ defmodule PlanningPoker.IssueProviders.Mock do
 
   ## Mock Data
 
-  The adapter provides 6 sample issues with varying complexity:
+  The adapter provides 7 sample issues with varying complexity:
   - Simple bug fixes
   - Feature requests
   - Complex technical debt items
   - Issues with and without epic associations
+  - Issues with collapsible `<details>` sections for testing
 
   All data resets when the application restarts.
   """
@@ -390,6 +391,139 @@ defmodule PlanningPoker.IssueProviders.Mock do
         "epic" => %{
           "title" => "Data Integration",
           "reference" => "&4"
+        }
+      },
+      %{
+        "id" => "mock-issue-7",
+        "iid" => "7",
+        "projectId" => "25",
+        "title" => "Implement advanced search with filters",
+        "description" => """
+        # Advanced Search Feature
+
+        Add a comprehensive search feature that allows users to find issues quickly using filters and advanced query syntax.
+
+        ## Overview
+
+        Users need to search through large issue backlogs efficiently. The current simple search is not sufficient for teams with hundreds of issues.
+
+        <details>
+        <summary>Technical Implementation Details</summary>
+
+        ### Backend Architecture
+
+        The search will use a multi-stage approach:
+
+        1. **Query Parsing**: Parse user input into search terms and filters
+        2. **Database Query**: Build dynamic Ecto queries based on filters
+        3. **Ranking**: Sort results by relevance score
+        4. **Caching**: Cache frequent searches for 5 minutes
+
+        ### Database Indexes Required
+
+        ```sql
+        CREATE INDEX idx_issues_title_trgm ON issues USING gin(title gin_trgm_ops);
+        CREATE INDEX idx_issues_description_trgm ON issues USING gin(description gin_trgm_ops);
+        CREATE INDEX idx_issues_status ON issues(status);
+        CREATE INDEX idx_issues_assignee ON issues(assignee_id);
+        ```
+
+        ### Performance Considerations
+
+        - Limit results to 100 items
+        - Use EXPLAIN ANALYZE for query optimization
+        - Consider ElasticSearch for large datasets (>10k issues)
+        </details>
+
+        <details>
+        <summary>UI/UX Design Mockups</summary>
+
+        ### Search Bar Design
+
+        The search bar should be prominently placed in the header with autocomplete:
+
+        - Dropdown suggestions as user types
+        - Recent searches history
+        - Syntax hints for filters
+
+        ### Filter Panel
+
+        Left sidebar with collapsible sections:
+
+        - **Status**: Open, In Progress, Closed
+        - **Assignee**: User selector with avatars
+        - **Labels**: Tag cloud with counts
+        - **Date Range**: Created/Updated date pickers
+        - **Weight**: Story point range slider
+
+        ### Results Display
+
+        Cards showing:
+        - Issue title (highlighted matches)
+        - Snippet of description with search terms highlighted
+        - Metadata badges (status, assignee, labels)
+        - Quick actions (view, edit, estimate)
+        </details>
+
+        <details>
+        <summary>Search Query Syntax Examples</summary>
+
+        Users can combine text search with filters:
+
+        ```
+        # Text search
+        authentication bug
+
+        # With status filter
+        authentication bug status:open
+
+        # Multiple filters
+        authentication assignee:alice label:security created:>2024-01-01
+
+        # Exact phrase matching
+        "user authentication" status:open
+
+        # Exclude terms
+        authentication -oauth
+
+        # OR operator
+        authentication OR authorization
+        ```
+
+        ### Filter Operators
+
+        - `:` - Equals (status:open)
+        - `:>` - Greater than (weight:>5)
+        - `:<` - Less than (created:<2024-01-01)
+        - `:*` - Contains (title:*search*)
+        </details>
+
+        ## Acceptance Criteria
+
+        - [ ] Search bar is accessible from all pages
+        - [ ] Autocomplete shows relevant suggestions
+        - [ ] Filters can be combined and work correctly
+        - [ ] Results highlight matching terms
+        - [ ] Search completes in <200ms for typical queries
+        - [ ] Mobile-responsive design
+        - [ ] Keyboard navigation support (arrow keys, enter to select)
+
+        ## Testing Strategy
+
+        - Unit tests for query parser
+        - Integration tests for database queries
+        - E2E tests for UI interactions
+        - Performance benchmarks with large datasets
+        """,
+        "descriptionHtml" => "<h1>Advanced Search Feature</h1>",
+        "referencePath" => "planning-poker#7",
+        "webUrl" => "http://localhost:4000/mock/issues/7",
+        "author" => %{"name" => "Alice Anderson"},
+        "createdAt" => "2024-01-21T10:00:00Z",
+        "weight" => nil,
+        "epic" => %{
+          "title" => "Search & Discovery",
+          "reference" => "&5"
         }
       }
     ]

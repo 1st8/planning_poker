@@ -24,7 +24,6 @@ defmodule PlanningPokerWeb.PlanningSessionLive.VotingComponent do
           issue={@issue}
           current_user_id={@current_user_id}
           session_id={@session_id}
-          participants={@participants}
         />
 
         <:controls>
