@@ -251,29 +251,93 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
 
   # Helpers
 
+  @mdex_options [
+    extension: [
+      strikethrough: true,
+      table: true,
+      autolink: true,
+      tasklist: true,
+      footnotes: true
+    ],
+    parse: [
+      smart: true,
+      relaxed_tasklist_matching: true
+    ],
+    render: [
+      unsafe_: true
+    ],
+    sanitize: [
+      add_tags: ["details", "summary", "input", "img"],
+      add_tag_attributes: %{
+        "input" => ["type", "checked", "disabled"],
+        "img" => ["src", "alt", "title"]
+      }
+    ]
+  ]
+
   def render_markdown(content) do
-    MDEx.to_html!(content,
-      extension: [
-        strikethrough: true,
-        table: true,
-        autolink: true,
-        tasklist: true,
-        footnotes: true
-      ],
-      parse: [
-        smart: true,
-        relaxed_tasklist_matching: true
-      ],
-      render: [
-        unsafe_: true
-      ],
-      sanitize: [
-        add_tags: ["details", "summary", "input"],
-        add_tag_attributes: %{"input" => ["type", "checked", "disabled"]}
-      ]
-    )
+    content
+    |> fix_image_urls_with_spaces()
+    |> MDEx.to_html!(@mdex_options)
+    |> postprocess_details_blocks()
   rescue
     _ ->
       "<p>Error rendering markdown</p>"
+  end
+
+  # Fix markdown image URLs that contain spaces by URL-encoding the spaces.
+  # CommonMark doesn't parse ![alt](url with spaces) as an image.
+  defp fix_image_urls_with_spaces(content) do
+    Regex.replace(
+      ~r/!\[([^\]]*)\]\(([^)]+)\)/,
+      content,
+      fn _match, alt, url ->
+        # Only encode if there are unencoded spaces
+        if String.contains?(url, " ") and not String.contains?(url, "%20") do
+          encoded_url = String.replace(url, " ", "%20")
+          "![#{alt}](#{encoded_url})"
+        else
+          "![#{alt}](#{url})"
+        end
+      end
+    )
+  end
+
+  # Post-process the rendered HTML to fix markdown inside <details> blocks.
+  # CommonMark doesn't parse markdown inside HTML blocks, so any markdown
+  # that wasn't rendered (shows as raw text) needs a second pass.
+  # At this point, inline code like `<details>` is already converted to
+  # <code>&lt;details&gt;</code>, so we can safely match real <details> tags.
+  defp postprocess_details_blocks(html) do
+    Regex.replace(
+      ~r/<details>(.*?)<\/details>/s,
+      html,
+      fn _match, inner_html ->
+        processed_inner = reprocess_details_content(inner_html)
+        "<details>#{processed_inner}</details>"
+      end
+    )
+  end
+
+  # Re-process content inside a <details> block.
+  # Look for unrendered markdown image syntax and render it.
+  defp reprocess_details_content(inner_html) do
+    # Check if there's unrendered markdown (raw ![alt](url) text)
+    if Regex.match?(~r/!\[[^\]]*\]\([^)]+\)/, inner_html) do
+      # Extract summary if present
+      case Regex.run(~r/^(\s*<summary>.*?<\/summary>)(.*)$/s, inner_html) do
+        [_full, summary, rest] ->
+          # Re-render the rest as markdown
+          rerendered = rest |> fix_image_urls_with_spaces() |> MDEx.to_html!(@mdex_options)
+          summary <> "\n" <> rerendered
+
+        nil ->
+          # No summary, re-render everything
+          inner_html |> fix_image_urls_with_spaces() |> MDEx.to_html!(@mdex_options)
+      end
+    else
+      # No raw markdown found, return as-is
+      inner_html
+    end
   end
 end

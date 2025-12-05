@@ -18,7 +18,7 @@ defmodule PlanningPoker.IssueProviders.Mock do
 
   ## Mock Data
 
-  The adapter provides 7 sample issues with varying complexity:
+  The adapter provides 8 sample issues with varying complexity:
   - Simple bug fixes
   - Feature requests
   - Complex technical debt items
@@ -238,7 +238,8 @@ defmodule PlanningPoker.IssueProviders.Mock do
         - [ ] Avatar upload works
         - [ ] Recent activity list displays
         """,
-        "descriptionHtml" => "<h1>User Profile Page</h1><p>Users should be able to view and edit their profile information.</p>",
+        "descriptionHtml" =>
+          "<h1>User Profile Page</h1><p>Users should be able to view and edit their profile information.</p>",
         "referencePath" => "planning-poker#1",
         "webUrl" => "http://localhost:4000/mock/issues/1",
         "author" => %{"name" => "Alice Anderson"},
@@ -392,6 +393,36 @@ defmodule PlanningPoker.IssueProviders.Mock do
           "title" => "Data Integration",
           "reference" => "&4"
         }
+      },
+      %{
+        "id" => "mock-issue-8",
+        "iid" => "8",
+        "projectId" => "25",
+        "title" => "Image rendering bug in collapsible sections",
+        "description" => """
+        # Image in Details Block Test
+
+        This issue is used to test rendering of images inside collapsible `<details>` sections.
+
+        <details>
+        <summary>Screenshot</summary>
+
+        ![Beiträge_und_Interessantes](/static/Generated Image December 04, 2025 - 12_43PM.png)
+
+        </details>
+
+        ## Expected Behavior
+
+        - Images should load correctly when details sections are expanded
+        - Layout should not break when toggling details open/closed
+        - Presence updates should not collapse open details sections
+        """,
+        "descriptionHtml" => "<h1>Image in Details Block Test</h1>",
+        "referencePath" => "planning-poker#8",
+        "webUrl" => "http://localhost:4000/mock/issues/8",
+        "author" => %{"name" => "Carol Chen"},
+        "createdAt" => "2024-01-22T14:00:00Z",
+        "weight" => nil
       },
       %{
         "id" => "mock-issue-7",

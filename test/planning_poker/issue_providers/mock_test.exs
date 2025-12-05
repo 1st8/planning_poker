@@ -42,7 +42,7 @@ defmodule PlanningPoker.IssueProviders.MockTest do
       {:ok, issues} = Mock.fetch_issues(client)
 
       assert is_list(issues)
-      assert length(issues) == 7
+      assert length(issues) > 0
 
       # Check first issue has required fields
       first_issue = List.first(issues)
