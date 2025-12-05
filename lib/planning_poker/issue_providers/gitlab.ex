@@ -253,8 +253,11 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
 
   defp maybe_add_epic(result, issue) do
     case issue["epic"] do
-      nil -> result
-      epic -> Map.put(result, "epic", %{"title" => epic["title"], "reference" => epic["reference"]})
+      nil ->
+        result
+
+      epic ->
+        Map.put(result, "epic", %{"title" => epic["title"], "reference" => epic["reference"]})
     end
   end
 end

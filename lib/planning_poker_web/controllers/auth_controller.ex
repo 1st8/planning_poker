@@ -68,10 +68,10 @@ defmodule PlanningPokerWeb.AuthController do
         |> configure_session(renew: true)
         |> redirect(to: "/")
 
-      # {:error, reason} ->
-      #   conn
-      #   |> put_flash(:error, reason)
-      #   |> redirect(to: "/")
+        # {:error, reason} ->
+        #   conn
+        #   |> put_flash(:error, reason)
+        #   |> redirect(to: "/")
     end
   end
 end

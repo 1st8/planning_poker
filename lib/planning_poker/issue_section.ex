@@ -57,15 +57,18 @@ defmodule PlanningPoker.IssueSection do
       section ->
         case section["locked_by"] do
           nil ->
-            updated_sections = update_section(sections, section_id, fn s ->
-              s
-              |> Map.put("locked_by", user)
-              |> Map.put("content_at_lock", s["content"])
-            end)
+            updated_sections =
+              update_section(sections, section_id, fn s ->
+                s
+                |> Map.put("locked_by", user)
+                |> Map.put("content_at_lock", s["content"])
+              end)
+
             {:ok, updated_sections}
 
           %{"id" => ^user_id} ->
-            {:ok, sections}  # Already locked by this user
+            # Already locked by this user
+            {:ok, sections}
 
           _other_user ->
             {:error, :section_locked}
@@ -92,17 +95,20 @@ defmodule PlanningPoker.IssueSection do
 
         cond do
           locked_by_id == user_id ->
-            updated_sections = update_section(sections, section_id, fn s ->
-              s
-              |> Map.put("locked_by", nil)
-              |> Map.delete("content_at_lock")
-            end)
+            updated_sections =
+              update_section(sections, section_id, fn s ->
+                s
+                |> Map.put("locked_by", nil)
+                |> Map.delete("content_at_lock")
+              end)
+
             # Split section on double newlines after unlocking
             split_sections = split_section_on_newlines(updated_sections, section_id)
             {:ok, split_sections}
 
           locked_by_id == nil ->
-            {:ok, sections}  # Already unlocked
+            # Already unlocked
+            {:ok, sections}
 
           true ->
             {:error, :not_lock_owner}
@@ -126,17 +132,21 @@ defmodule PlanningPoker.IssueSection do
 
         cond do
           locked_by_id == user_id ->
-            updated_sections = update_section(sections, section_id, fn s ->
-              content_to_restore = s["content_at_lock"] || s["content"]
-              s
-              |> Map.put("content", content_to_restore)
-              |> Map.put("locked_by", nil)
-              |> Map.delete("content_at_lock")
-            end)
+            updated_sections =
+              update_section(sections, section_id, fn s ->
+                content_to_restore = s["content_at_lock"] || s["content"]
+
+                s
+                |> Map.put("content", content_to_restore)
+                |> Map.put("locked_by", nil)
+                |> Map.delete("content_at_lock")
+              end)
+
             {:ok, updated_sections}
 
           locked_by_id == nil ->
-            {:ok, sections}  # Already unlocked
+            # Already unlocked
+            {:ok, sections}
 
           true ->
             {:error, :not_lock_owner}
@@ -159,9 +169,11 @@ defmodule PlanningPoker.IssueSection do
 
         cond do
           locked_by_id == user_id ->
-            updated_sections = update_section(sections, section_id, fn s ->
-              Map.put(s, "content", content)
-            end)
+            updated_sections =
+              update_section(sections, section_id, fn s ->
+                Map.put(s, "content", content)
+              end)
+
             {:ok, updated_sections}
 
           locked_by_id == nil ->
@@ -172,7 +184,6 @@ defmodule PlanningPoker.IssueSection do
         end
     end
   end
-
 
   @doc """
   Marks a section as deleted (soft delete).
@@ -190,11 +201,14 @@ defmodule PlanningPoker.IssueSection do
 
         cond do
           locked_by_id == user_id ->
-            updated_sections = update_section(sections, section_id, fn s ->
-              s
-              |> Map.put("deleted", true)
-              |> Map.put("locked_by", nil)  # Unlock when deleting
-            end)
+            updated_sections =
+              update_section(sections, section_id, fn s ->
+                s
+                |> Map.put("deleted", true)
+                # Unlock when deleting
+                |> Map.put("locked_by", nil)
+              end)
+
             {:ok, updated_sections}
 
           locked_by_id == nil ->
@@ -219,12 +233,15 @@ defmodule PlanningPoker.IssueSection do
 
       section ->
         if section["deleted"] do
-          updated_sections = update_section(sections, section_id, fn s ->
-            Map.put(s, "deleted", false)
-          end)
+          updated_sections =
+            update_section(sections, section_id, fn s ->
+              Map.put(s, "deleted", false)
+            end)
+
           {:ok, updated_sections}
         else
-          {:ok, sections}  # Already not deleted
+          # Already not deleted
+          {:ok, sections}
         end
     end
   end
@@ -240,8 +257,8 @@ defmodule PlanningPoker.IssueSection do
   def has_modifications?(sections) when is_list(sections) do
     Enum.any?(sections, fn section ->
       section["deleted"] == true ||
-      section["original_content"] == nil ||
-      section["content"] != section["original_content"]
+        section["original_content"] == nil ||
+        section["content"] != section["original_content"]
     end)
   end
 
@@ -274,10 +291,11 @@ defmodule PlanningPoker.IssueSection do
     block_pattern = ~r/<!--[\s\S]*?-->|<details>[\s\S]*?<\/details>|```[\s\S]*?```/
 
     # Find all block matches with their positions
-    blocks = Regex.scan(block_pattern, markdown, return: :index)
-    |> Enum.map(fn [{start, length}] ->
-      {start, length, String.slice(markdown, start, length)}
-    end)
+    blocks =
+      Regex.scan(block_pattern, markdown, return: :index)
+      |> Enum.map(fn [{start, length}] ->
+        {start, length, String.slice(markdown, start, length)}
+      end)
 
     # If no blocks found, use simple split
     if Enum.empty?(blocks) do
@@ -336,6 +354,7 @@ defmodule PlanningPoker.IssueSection do
           # No split needed - single segment or empty
           [] ->
             sections
+
           [_single] ->
             sections
 
@@ -350,9 +369,11 @@ defmodule PlanningPoker.IssueSection do
                 %{
                   "id" => "temp-#{:erlang.unique_integer([:positive])}",
                   "content" => segment,
-                  "original_content" => nil,  # Mark as new/modified
+                  # Mark as new/modified
+                  "original_content" => nil,
                   "locked_by" => nil,
-                  "position" => 0,  # Will be updated in renumbering
+                  # Will be updated in renumbering
+                  "position" => 0,
                   "deleted" => false
                 }
               end)
@@ -365,7 +386,8 @@ defmodule PlanningPoker.IssueSection do
               Enum.split_while(sections, fn s -> s["position"] < original_position end)
 
             # Remove the original from the after list
-            after_sections = Enum.reject(after_including_original, fn s -> s["id"] == section_id end)
+            after_sections =
+              Enum.reject(after_including_original, fn s -> s["id"] == section_id end)
 
             # Combine: before + updated_original + new_sections + after
             combined = before ++ [updated_original] ++ new_sections ++ after_sections

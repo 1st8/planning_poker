@@ -5,8 +5,13 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent do
   defp render_item(assigns) do
     ~H"""
     <%= if @item["type"] == "marker" do %>
-      <div class="marker-card bg-accent text-accent-content rounded-lg p-2 mb-2 cursor-move" data-id={@item["id"]}>
-        <div class="flex gap-4 items-center justify-center">⬇️<span class="font-bold text-lg"><%= @item["value"] %></span>⬇️</div>
+      <div
+        class="marker-card bg-accent text-accent-content rounded-lg p-2 mb-2 cursor-move"
+        data-id={@item["id"]}
+      >
+        <div class="flex gap-4 items-center justify-center">
+          ⬇️<span class="font-bold text-lg"><%= @item["value"] %></span>⬇️
+        </div>
       </div>
     <% else %>
       <div class="issue-card bg-base-100 rounded-lg p-4 mb-2 cursor-move" data-id={@item["id"]}>
@@ -16,13 +21,13 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent do
             target="_blank"
             class="underline decoration-primary hover:decoration-primary/50 decoration-2"
           >
-            <%= @item["title"] %>
+            {@item["title"]}
           </a>
         </div>
-        <small class="text-sm"><%= @item["referencePath"] %></small>
+        <small class="text-sm">{@item["referencePath"]}</small>
         <%= if note = get_note(@personal_notes, @item["id"]) do %>
           <div class="mt-2 text-sm italic text-base-content/60 border-l-2 border-primary/30 pl-2">
-            <%= note %>
+            {note}
           </div>
         <% end %>
       </div>
@@ -60,7 +65,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent do
               />
             </svg>
             <span>
-              Updating issue weights... (<%= @weight_update_completed %>/<%= @weight_update_total %> completed)
+              Updating issue weights... ({@weight_update_completed}/{@weight_update_total} completed)
             </span>
           </div>
         <% end %>

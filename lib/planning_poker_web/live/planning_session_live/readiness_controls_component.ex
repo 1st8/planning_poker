@@ -17,8 +17,8 @@ defmodule PlanningPokerWeb.PlanningSessionLive.ReadinessControlsComponent do
               value={value}
               phx-click="set_readiness"
             >
-              <span class="text-2xl"><%= emoji %></span>
-              <span><%= label %></span>
+              <span class="text-2xl">{emoji}</span>
+              <span>{label}</span>
             </button>
           <% end %>
         </div>
