@@ -19,9 +19,11 @@ defmodule PlanningPokerWeb.PlanningSessionLive.ParticipantsListComponent do
                 <% end %>
               </div>
               <div class="flex flex-col">
-                <span><%= render_name(participant, @participants) %></span>
+                <span>{render_name(participant, @participants)}</span>
                 <%= if participant[:readiness] do %>
-                  <small class="text-xs opacity-70"><%= render_readiness(participant[:readiness]) %></small>
+                  <small class="text-xs opacity-70">
+                    {render_readiness(participant[:readiness])}
+                  </small>
                 <% end %>
               </div>
             </li>
@@ -40,7 +42,9 @@ defmodule PlanningPokerWeb.PlanningSessionLive.ParticipantsListComponent do
   # Helper function to render participant names
   def render_name(participant, participants) do
     first_name = participant.name |> String.split(" ") |> List.first()
-    occurrences = Enum.count(participants, fn p -> String.split(p.name, " ") |> List.first() == first_name end)
+
+    occurrences =
+      Enum.count(participants, fn p -> String.split(p.name, " ") |> List.first() == first_name end)
 
     if occurrences > 1 do
       last_name_initial = participant.name |> String.split(" ") |> List.last() |> String.first()

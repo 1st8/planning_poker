@@ -9,7 +9,9 @@ defmodule PlanningPokerWeb.PlanningSessionLive.LobbyComponent do
           <div class="text-center py-16">
             <div class="text-6xl mb-4">🎉</div>
             <h3 class="text-2xl font-bold mb-2">Alle Issues sind geplant!</h3>
-            <p class="text-base-content/70">Tolle Arbeit! Es gibt momentan keine offenen Issues zum Planen.</p>
+            <p class="text-base-content/70">
+              Tolle Arbeit! Es gibt momentan keine offenen Issues zum Planen.
+            </p>
           </div>
         <% else %>
           <ol class="grid 2xl:grid-cols-2 gap-8">

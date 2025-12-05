@@ -36,11 +36,14 @@ defmodule PlanningPoker.Planning do
           type: :worker
         }
 
-        result = DynamicSupervisor.start_child(PlanningPoker.PlanningSession.Supervisor, child_spec)
+        result =
+          DynamicSupervisor.start_child(PlanningPoker.PlanningSession.Supervisor, child_spec)
 
         case result do
           {:ok, pid} ->
-            Logger.info("PlanningSession started successfully under supervisor, PID: #{inspect(pid)}")
+            Logger.info(
+              "PlanningSession started successfully under supervisor, PID: #{inspect(pid)}"
+            )
 
           {:error, {:already_started, pid}} ->
             Logger.debug(
@@ -177,7 +180,9 @@ defmodule PlanningPoker.Planning do
   end
 
   def update_issue_position(session_id, issue_id, from_list, to_list, new_index) do
-    session_id |> to_pid |> :gen_statem.call({:update_issue_position, issue_id, from_list, to_list, new_index})
+    session_id
+    |> to_pid
+    |> :gen_statem.call({:update_issue_position, issue_id, from_list, to_list, new_index})
   end
 
   def complete_estimation(session_id) do
@@ -197,7 +202,9 @@ defmodule PlanningPoker.Planning do
   end
 
   def update_section_content(session_id, section_id, content, user_id) do
-    session_id |> to_pid |> :gen_statem.call({:update_section_content, section_id, content, user_id})
+    session_id
+    |> to_pid
+    |> :gen_statem.call({:update_section_content, section_id, content, user_id})
   end
 
   def delete_section(session_id, section_id, user_id) do

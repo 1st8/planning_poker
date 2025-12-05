@@ -1,7 +1,15 @@
 # System.put_env("GITLAB_CLIENT_ID", "0a2c027476e97eb9657adc6bbdb1cf199e2377586dcc22c3c61803f23b53855b")
 # System.put_env("GITLAB_CLIENT_SECRET", "gloas-b3662c75fed5b9c3bfba1a08a09dc494642434673d0108ee6b77af6fd7b671b2")
-System.put_env("GITLAB_CLIENT_ID", "6b0a87998deafce3f60bd7627b60237db8df4c1feb863f246035d19bee530957")
-System.put_env("GITLAB_CLIENT_SECRET", "cc9987c41008ef642a1a77431cf171af00fbff462d468bd1e0d5d78cb6cdbaef")
+System.put_env(
+  "GITLAB_CLIENT_ID",
+  "6b0a87998deafce3f60bd7627b60237db8df4c1feb863f246035d19bee530957"
+)
+
+System.put_env(
+  "GITLAB_CLIENT_SECRET",
+  "cc9987c41008ef642a1a77431cf171af00fbff462d468bd1e0d5d78cb6cdbaef"
+)
+
 System.put_env("GITLAB_SITE", "https://gitlab.sys.mixxt.net")
 System.put_env("DEFAULT_LIST_ID", "68")
 System.put_env("PHX_HOST", "ce27476a194f.ngrok-free.app")

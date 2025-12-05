@@ -99,10 +99,18 @@
       <Layouts.theme_toggle />
       <%= if @planning_session.state == :lobby do %>
         <button phx-click="change_mode" class="btn btn-primary btn-sm">
-          Change mode to <%= if @planning_session.mode == :magic_estimation, do: "PlanningPoker", else: "MagicEstimation" %>
+          Change mode to {if @planning_session.mode == :magic_estimation,
+            do: "PlanningPoker",
+            else: "MagicEstimation"}
         </button>
       <% end %>
-      <button phx-click="kill_planning_session" id="kill-button" class="btn btn-warning btn-sm hidden recently_opened">Kill</button>
+      <button
+        phx-click="kill_planning_session"
+        id="kill-button"
+        class="btn btn-warning btn-sm hidden recently_opened"
+      >
+        Kill
+      </button>
     </div>
   </div>
 </div>

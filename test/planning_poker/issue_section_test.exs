@@ -110,7 +110,9 @@ defmodule PlanningPoker.IssueSectionTest do
       # Should have 3 sections: text before, details block, empty or nothing after
       assert length(sections) == 3
       assert Enum.at(sections, 0)["content"] == "Hier darf gesplittet werden."
-      assert Enum.at(sections, 1)["content"] == "Hier auch. Die Details und der Kommentar aber nicht."
+
+      assert Enum.at(sections, 1)["content"] ==
+               "Hier auch. Die Details und der Kommentar aber nicht."
 
       # The details block should be preserved as one section
       details_section = Enum.at(sections, 2)
@@ -370,7 +372,13 @@ defmodule PlanningPoker.IssueSectionTest do
   describe "unlock_section/3" do
     setup do
       sections = [
-        %{"id" => "section-1", "content" => "Test", "locked_by" => user("user-123"), "position" => 0, "content_at_lock" => "Original"},
+        %{
+          "id" => "section-1",
+          "content" => "Test",
+          "locked_by" => user("user-123"),
+          "position" => 0,
+          "content_at_lock" => "Original"
+        },
         %{"id" => "section-2", "content" => "Test 2", "locked_by" => nil, "position" => 1}
       ]
 
@@ -638,21 +646,28 @@ defmodule PlanningPoker.IssueSectionTest do
   describe "update_section_content/4" do
     setup do
       sections = [
-        %{"id" => "section-1", "content" => "Old content", "locked_by" => user("user-123"), "position" => 0}
+        %{
+          "id" => "section-1",
+          "content" => "Old content",
+          "locked_by" => user("user-123"),
+          "position" => 0
+        }
       ]
 
       {:ok, sections: sections}
     end
 
     test "updates content when user owns the lock", %{sections: sections} do
-      {:ok, updated} = IssueSection.update_section_content(sections, "section-1", "New content", "user-123")
+      {:ok, updated} =
+        IssueSection.update_section_content(sections, "section-1", "New content", "user-123")
 
       section = Enum.find(updated, &(&1["id"] == "section-1"))
       assert section["content"] == "New content"
     end
 
     test "prevents update when user does not own the lock", %{sections: sections} do
-      result = IssueSection.update_section_content(sections, "section-1", "New content", "user-456")
+      result =
+        IssueSection.update_section_content(sections, "section-1", "New content", "user-456")
 
       assert result == {:error, :not_lock_owner}
     end
@@ -662,13 +677,15 @@ defmodule PlanningPoker.IssueSectionTest do
         %{"id" => "section-1", "content" => "Old content", "locked_by" => nil, "position" => 0}
       ]
 
-      result = IssueSection.update_section_content(sections, "section-1", "New content", "user-123")
+      result =
+        IssueSection.update_section_content(sections, "section-1", "New content", "user-123")
 
       assert result == {:error, :section_not_locked}
     end
 
     test "returns error for non-existent section", %{sections: sections} do
-      result = IssueSection.update_section_content(sections, "non-existent", "New content", "user-123")
+      result =
+        IssueSection.update_section_content(sections, "non-existent", "New content", "user-123")
 
       assert result == {:error, :section_not_found}
     end

@@ -108,7 +108,9 @@ defmodule PlanningPoker.IssueProviders.MockTest do
 
       # Update the issue
       new_description = "Updated description for testing"
-      {:ok, updated} = Mock.update_issue(client, "mock-project", "1", %{description: new_description})
+
+      {:ok, updated} =
+        Mock.update_issue(client, "mock-project", "1", %{description: new_description})
 
       assert updated["description"] == new_description
       assert updated["id"] == "mock-issue-1"

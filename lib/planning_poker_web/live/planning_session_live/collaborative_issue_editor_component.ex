@@ -7,7 +7,12 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="collaborative-editor prose prose-lg max-w-none" phx-hook="ProxyGitLabAssets" data-project-id={@issue["projectId"]} id="collaborative-editor">
+    <div
+      class="collaborative-editor prose prose-lg max-w-none"
+      phx-hook="ProxyGitLabAssets"
+      data-project-id={@issue["projectId"]}
+      id="collaborative-editor"
+    >
       <div :if={@issue["sections"]} class="sections-container">
         <%= for {section, index} <- Enum.with_index(@issue["sections"]) do %>
           <% is_edited =
@@ -120,7 +125,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
                     </button>
                   <% end %>
                 <% end %>
-
+                
     <!-- Regular prose content -->
                 <div class={"section-content #{if section["deleted"], do: "line-through opacity-30"}"}>
                   <%= if section["content"] == "" do %>

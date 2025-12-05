@@ -6,7 +6,8 @@ config :planning_poker, dev_routes: true
 # Configure the endpoint for E2E tests
 config :planning_poker, PlanningPokerWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4004],
-  secret_key_base: "E2ETestSecretKeyBaseE2ETestSecretKeyBaseE2ETestSecretKeyBaseE2ETestSecretKeyBaseE2ETestSecretKeyBase",
+  secret_key_base:
+    "E2ETestSecretKeyBaseE2ETestSecretKeyBaseE2ETestSecretKeyBaseE2ETestSecretKeyBaseE2ETestSecretKeyBase",
   server: true,
   live_view: [signing_salt: "e2e_test_salt"],
   check_origin: false

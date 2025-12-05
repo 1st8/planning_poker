@@ -301,6 +301,7 @@ defmodule PlanningPoker.PlanningSession do
 
       issue ->
         user = get_user_from_presence(data.id, user_id)
+
         case IssueSection.lock_section(issue["sections"], section_id, user) do
           {:ok, updated_sections} ->
             updated_issue = Map.put(issue, "sections", updated_sections)
@@ -678,12 +679,15 @@ defmodule PlanningPoker.PlanningSession do
       (Map.get(p, :id) || Map.get(p, "id")) == user_id
     end)
     |> case do
-      nil -> %{"id" => user_id, "name" => "Unknown", "email" => ""}
-      user -> %{
-        "id" => Map.get(user, :id) || Map.get(user, "id"),
-        "name" => Map.get(user, :name) || Map.get(user, "name") || "Unknown",
-        "email" => Map.get(user, :email) || Map.get(user, "email") || ""
-      }
+      nil ->
+        %{"id" => user_id, "name" => "Unknown", "email" => ""}
+
+      user ->
+        %{
+          "id" => Map.get(user, :id) || Map.get(user, "id"),
+          "name" => Map.get(user, :name) || Map.get(user, "name") || "Unknown",
+          "email" => Map.get(user, :email) || Map.get(user, "email") || ""
+        }
     end
   end
 
@@ -844,7 +848,9 @@ defmodule PlanningPoker.PlanningSession do
         weight = Map.get(weight_map, issue["id"])
         {project_id, issue_iid} = extract_issue_identifiers(issue)
 
-        Logger.info("Creating update task for issue ##{issue_iid} (#{issue["title"]}) with weight=#{weight}")
+        Logger.info(
+          "Creating update task for issue ##{issue_iid} (#{issue["title"]}) with weight=#{weight}"
+        )
 
         task =
           Task.Supervisor.async_nolink(PlanningPoker.TaskSupervisor, fn ->

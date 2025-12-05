@@ -199,5 +199,4 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MarkdownRenderingTest do
       refute html =~ "![Beiträge_und_Interessantes]"
     end
   end
-
 end

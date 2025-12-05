@@ -17,7 +17,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.VotingControlsComponent do
               value={option}
               phx-click="cast_vote"
             >
-              <%= option %>
+              {option}
             </button>
           <% end %>
         </div>
