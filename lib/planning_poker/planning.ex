@@ -189,6 +189,14 @@ defmodule PlanningPoker.Planning do
     session_id |> to_pid |> :gen_statem.call(:complete_estimation)
   end
 
+  def end_turn(session_id) do
+    session_id |> to_pid |> :gen_statem.call(:end_turn)
+  end
+
+  def sync_turn_order(session_id, participant_ids) do
+    session_id |> to_pid |> :gen_statem.call({:sync_turn_order, participant_ids})
+  end
+
   def lock_section(session_id, section_id, user_id) do
     session_id |> to_pid |> :gen_statem.call({:lock_section, section_id, user_id})
   end
