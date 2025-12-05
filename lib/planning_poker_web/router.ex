@@ -55,5 +55,12 @@ defmodule PlanningPokerWeb.Router do
       live_dashboard "/dashboard", metrics: PlanningPokerWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
+
+    scope "/dev", PlanningPokerWeb do
+      pipe_through :api
+
+      get "/reset_session", DevController, :reset_session
+      post "/halt", DevController, :halt
+    end
   end
 end

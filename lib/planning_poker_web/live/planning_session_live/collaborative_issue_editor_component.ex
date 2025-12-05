@@ -85,7 +85,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
                     <!-- Avatar and lock indicator when locked by others -->
                     <div
                       class="absolute -left-7 top-1 flex items-center gap-1 not-prose"
-                      title={"Being edited by #{locked_by_user && locked_by_user.name}"}
+                      title={"Being edited by #{locked_by_user && locked_by_user["name"]}"}
                     >
                       <%= if locked_by_user do %>
                         <div class="inline-grid *:[grid-area:1/1]">
