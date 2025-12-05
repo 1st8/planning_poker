@@ -74,66 +74,20 @@ For local development and testing, use the mock provider:
 
 ### E2E Testing
 
-End-to-end tests are located in `test/e2e/` and use Playwright:
+End-to-end tests are located in `test/e2e/` and use Playwright. See `test/e2e/README.md` for detailed documentation.
 
 ```bash
 # Run all e2e tests
 npm run e2e:test
-
-# Run a specific test file
-npm run e2e:test -- multi_user.spec.js
 
 # Run tests with UI (interactive mode)
 npm run e2e:ui
 
 # Run tests in headed mode (see browser)
 npm run e2e:headed
-
-# Debug tests (step through with debugger)
-npm run e2e:debug
 ```
 
 Tests automatically start the Phoenix server on port 4004 in e2e mode.
-
-#### E2E Test Architecture
-
-**Shared Session Constraint**: The application has a single shared `PlanningSession` (GenStatem process) for all users. This means:
-- Tests must run **sequentially** (not in parallel)
-- Session state must be reset between tests
-- Playwright is configured with `workers: 1` and `fullyParallel: false`
-
-**Multi-User Testing**: Tests use separate browser contexts for each user to simulate multiple participants:
-```javascript
-const context1 = await browser.newContext();
-const context2 = await browser.newContext();
-const page1 = await context1.newPage();
-const page2 = await context2.newPage();
-```
-
-**Dev Endpoints** (available in dev and e2e environments):
-- `GET /dev/reset_session` - Kills the PlanningSession process to ensure clean state between tests
-- `POST /dev/halt` - Gracefully shuts down the server (used by teardown.js)
-
-**Test Utilities** (`test/e2e/utils.js`):
-- `loginAsMockUser(page, username)` - Login as alice, bob, or carol
-- `syncLV(page)` - Wait for LiveView to settle after events
-- `resetSession(request)` - Call the reset endpoint before each test
-
-**Global Teardown**: `test/e2e/teardown.js` calls `/dev/halt` after all tests complete to gracefully stop the Phoenix server. This prevents orphaned server processes.
-
-**Test Structure**:
-```javascript
-test.beforeEach(async ({ request }) => {
-  await resetSession(request);  // Clean slate for each test
-});
-
-test('multi-user scenario', async ({ browser }) => {
-  // Create isolated contexts for each user
-  const context1 = await browser.newContext();
-  const page1 = await context1.newPage();
-  // ... test logic
-});
-```
 
 ---
 
