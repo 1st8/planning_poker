@@ -4,14 +4,14 @@
 
 /**
  * Wait for LiveView to finish processing all events.
- * Call this after triggering actions to ensure the view has updated.
+ * Simple wait for DOM to settle after LiveView events.
  *
  * @param {import('@playwright/test').Page} page - Playwright page object
- * @param {number} timeout - Maximum time to wait in milliseconds (default: 5000)
+ * @param {number} timeout - Maximum time to wait in milliseconds (default: 300)
  */
-export async function syncLV(page, timeout = 5000) {
-  // Just wait a short time for LiveView to process events
-  await page.waitForTimeout(300);
+export async function syncLV(page, timeout = 300) {
+  // Simple wait for DOM updates to complete
+  await page.waitForTimeout(timeout);
 }
 
 /**
@@ -63,4 +63,16 @@ export async function navigateToLobby(page, sessionId = 'default') {
  */
 export async function waitForText(page, selector, text, timeout = 5000) {
   await page.waitForSelector(`${selector}:has-text("${text}")`, { timeout });
+}
+
+/**
+ * Reset the planning session by calling the dev endpoint.
+ * This kills the GenStatem process to ensure clean state between tests.
+ *
+ * @param {import('@playwright/test').APIRequestContext} request - Playwright request context
+ */
+export async function resetSession(request) {
+  await request.get('/dev/reset_session');
+  // Give server time to clean up
+  await new Promise(r => setTimeout(r, 100));
 }

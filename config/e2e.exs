@@ -1,5 +1,8 @@
 import Config
 
+# Enable dev routes (for /dev/reset_session endpoint used by e2e tests)
+config :planning_poker, dev_routes: true
+
 # Configure the endpoint for E2E tests
 config :planning_poker, PlanningPokerWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4004],
