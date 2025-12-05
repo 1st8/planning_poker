@@ -175,6 +175,29 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MarkdownRenderingTest do
       refute html =~ "onclick"
       refute html =~ "alert"
     end
+
+    test "renders markdown images inside details blocks" do
+      markdown = """
+      <details>
+      <summary>Screenshot</summary>
+
+      ![Beiträge_und_Interessantes](/static/Generated Image December 04, 2025 - 12_43PM.png)
+
+      </details>
+      """
+
+      html = render_markdown(markdown)
+
+      assert html =~ "<details>"
+      assert html =~ "<summary>Screenshot</summary>"
+      # The markdown image syntax should be converted to an <img> tag
+      assert html =~ "<img"
+      # Spaces in URLs get URL-encoded to %20
+      assert html =~ ~s(src="/static/Generated%20Image%20December%2004,%202025%20-%2012_43PM.png")
+      assert html =~ ~s(alt="Beiträge_und_Interessantes")
+      # Should NOT show the raw markdown syntax
+      refute html =~ "![Beiträge_und_Interessantes]"
+    end
   end
 
 end
