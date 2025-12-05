@@ -33,3 +33,13 @@
 .sortable-drag {
   @apply shadow-xl;
 }
+
+/* Previous turn moves highlighting */
+.issue-card.moved-last-turn {
+  @apply border-l-4 border-secondary bg-secondary/10;
+}
+
+/* Active participant in participants list */
+.participant-active {
+  @apply ring-2 ring-primary ring-offset-2 ring-offset-base-100 rounded-lg;
+}

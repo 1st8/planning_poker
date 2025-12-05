@@ -119,6 +119,11 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     {:noreply, socket}
   end
 
+  def handle_event("end_turn", _value, socket) do
+    :ok = Planning.end_turn(socket.assigns.planning_session.id)
+    {:noreply, socket}
+  end
+
   def handle_event("back_to_lobby", _value, socket) do
     :ok = Planning.back_to_lobby(socket.assigns.planning_session.id)
     {:noreply, socket}
@@ -159,10 +164,17 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
   end
 
   def handle_info(%{event: "presence_diff"}, socket) do
-    participants = Planning.get_participants!(socket.assigns.planning_session.id)
+    session_id = socket.assigns.planning_session.id
+    participants = Planning.get_participants!(session_id)
 
     current_participant =
       Enum.find(participants, fn p -> p.id == socket.assigns.current_participant.id end)
+
+    # Sync turn order when in magic_estimation state
+    if socket.assigns.planning_session.state == :magic_estimation do
+      participant_ids = Enum.map(participants, & &1.id)
+      Planning.sync_turn_order(session_id, participant_ids)
+    end
 
     {
       :noreply,

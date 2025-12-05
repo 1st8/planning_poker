@@ -28,6 +28,11 @@
           weight_update_completed={Map.get(data, :weight_update_completed, 0)}
           weight_update_total={Map.get(data, :weight_update_total, 0)}
           personal_notes={@personal_notes}
+          turn_order={Map.get(data, :turn_order, [])}
+          current_turn_index={Map.get(data, :current_turn_index, 0)}
+          previous_turn_moves={Map.get(data, :previous_turn_moves, [])}
+          current_user_id={@current_participant.id}
+          participants={@participants}
         />
       <% %{state: :results, current_issue: issue} -> %>
         <.live_component
@@ -93,6 +98,15 @@
       module={PlanningPokerWeb.PlanningSessionLive.ParticipantsListComponent}
       id="participants-list"
       participants={@participants}
+      active_participant_id={
+        if @planning_session.state == :magic_estimation do
+          turn_order = Map.get(@planning_session, :turn_order, [])
+          current_index = Map.get(@planning_session, :current_turn_index, 0)
+          Enum.at(turn_order, current_index)
+        else
+          nil
+        end
+      }
     />
 
     <div class="flex flex-col items-center gap-4">

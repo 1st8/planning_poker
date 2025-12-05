@@ -178,12 +178,20 @@ defmodule PlanningPoker.PlanningSession do
         }
       end)
 
+    # Get current participants and create shuffled turn order
+    participants = Planning.get_participants!(data.id)
+    turn_order = participants |> Enum.map(& &1.id) |> Enum.shuffle()
+
     data = %{
       data
       | unestimated_issues: data.issues ++ markers,
         # Add markers to the estimated column initially
         estimated_issues: []
     }
+    |> Map.put(:turn_order, turn_order)
+    |> Map.put(:current_turn_index, 0)
+    |> Map.put(:current_turn_moves, [])
+    |> Map.put(:previous_turn_moves, [])
 
     broadcast_state_change(:magic_estimation, data)
     {:next_state, :magic_estimation, data, [{:reply, from, :ok}]}
@@ -258,11 +266,92 @@ defmodule PlanningPoker.PlanningSession do
 
     updated_target = before_items ++ [issue] ++ after_items
 
+    # Track this move in current_turn_moves (only for non-marker items)
+    current_turn_moves =
+      if issue["type"] != "marker" do
+        [issue_id | Map.get(data, :current_turn_moves, [])] |> Enum.uniq()
+      else
+        Map.get(data, :current_turn_moves, [])
+      end
+
     # Update both lists in the state data
     updated_data =
       data
       |> Map.put(source_list, updated_source)
       |> Map.put(target_list, updated_target)
+      |> Map.put(:current_turn_moves, current_turn_moves)
+
+    broadcast_state_change(:magic_estimation, updated_data)
+    {:keep_state, updated_data, [{:reply, from, :ok}]}
+  end
+
+  def handle_event({:call, from}, :end_turn, :magic_estimation, data) do
+    turn_order = Map.get(data, :turn_order, [])
+    current_index = Map.get(data, :current_turn_index, 0)
+    current_moves = Map.get(data, :current_turn_moves, [])
+
+    # Calculate next index (wrap around)
+    next_index =
+      if length(turn_order) > 0 do
+        rem(current_index + 1, length(turn_order))
+      else
+        0
+      end
+
+    updated_data =
+      data
+      |> Map.put(:current_turn_index, next_index)
+      |> Map.put(:previous_turn_moves, current_moves)
+      |> Map.put(:current_turn_moves, [])
+
+    broadcast_state_change(:magic_estimation, updated_data)
+    {:keep_state, updated_data, [{:reply, from, :ok}]}
+  end
+
+  def handle_event(
+        {:call, from},
+        {:sync_turn_order, participant_ids},
+        :magic_estimation,
+        data
+      ) do
+    turn_order = Map.get(data, :turn_order, [])
+    current_index = Map.get(data, :current_turn_index, 0)
+
+    # Get current active participant ID before filtering
+    current_participant_id =
+      if length(turn_order) > 0 do
+        Enum.at(turn_order, current_index)
+      else
+        nil
+      end
+
+    # Filter turn_order to only include participants still present
+    updated_turn_order = Enum.filter(turn_order, fn id -> id in participant_ids end)
+
+    # Add new participants that weren't in the original turn order
+    new_participants = Enum.filter(participant_ids, fn id -> id not in turn_order end)
+    updated_turn_order = updated_turn_order ++ new_participants
+
+    # Adjust index if the current participant left
+    new_index =
+      cond do
+        # No participants left
+        length(updated_turn_order) == 0 ->
+          0
+
+        # Current participant is still in the list - find their new index
+        current_participant_id in updated_turn_order ->
+          Enum.find_index(updated_turn_order, fn id -> id == current_participant_id end)
+
+        # Current participant left - keep same index but wrap if needed
+        true ->
+          rem(current_index, max(length(updated_turn_order), 1))
+      end
+
+    updated_data =
+      data
+      |> Map.put(:turn_order, updated_turn_order)
+      |> Map.put(:current_turn_index, new_index)
 
     broadcast_state_change(:magic_estimation, updated_data)
     {:keep_state, updated_data, [{:reply, from, :ok}]}
@@ -705,7 +794,8 @@ defmodule PlanningPoker.PlanningSession do
       :fetch_issue_ref,
       :update_issue_ref,
       :weight_update_tasks,
-      :weight_update_failures
+      :weight_update_failures,
+      :current_turn_moves
     ])
     |> Map.merge(%{
       state: state,
