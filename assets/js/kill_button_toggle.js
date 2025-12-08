@@ -5,9 +5,9 @@ let clickTimeout;
 document.body.addEventListener("click", () => {
   clickCount++;
   if (clickCount === 3) {
-    // Show all buttons with the recently_opened class
-    document.querySelectorAll(".recently_opened.hidden").forEach((button) => {
-      button.classList.remove("hidden");
+    // Show all elements with the triple-click-reveal class
+    document.querySelectorAll(".triple-click-reveal.hidden").forEach((el) => {
+      el.classList.remove("hidden");
     });
     clickCount = 0;
   }
