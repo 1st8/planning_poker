@@ -108,26 +108,6 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent do
           </div>
         <% end %>
 
-        <div class="mb-4 p-3 rounded-lg bg-base-200">
-          <%= if @is_my_turn do %>
-            <div class="flex items-center gap-2 text-success font-medium">
-              <.icon name="hero-hand-raised" class="w-5 h-5" />
-              <span>Du bist dran! Verschiebe Issues in die rechte Spalte.</span>
-            </div>
-          <% else %>
-            <div class="flex items-center gap-2 text-base-content/70">
-              <.icon name="hero-clock" class="w-5 h-5" />
-              <span>
-                <%= if @active_participant do %>
-                  <strong><%= @active_participant.name %></strong> ist dran...
-                <% else %>
-                  Warte auf Teilnehmer...
-                <% end %>
-              </span>
-            </div>
-          <% end %>
-        </div>
-
         <div
           class="grid grid-cols-2 gap-8"
           phx-hook="SortableIssues"
@@ -162,11 +142,6 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent do
           </div>
         </div>
         <:controls>
-          <%= if @is_my_turn do %>
-            <button class="btn btn-secondary btn-sm" phx-click="end_turn" id="end-turn-btn">
-              Bin fertig
-            </button>
-          <% end %>
           <button
             class="btn btn-primary btn-sm"
             phx-hook="LongPressButton"
