@@ -36,12 +36,12 @@ test.describe('Magic Estimation Turn-Based Mode', () => {
       expect(page1IsTurn || page2IsTurn).toBe(true);
       expect(page1IsTurn && page2IsTurn).toBe(false);
 
-      // Active user sees "Bin fertig" button, other doesn't
+      // Active user has enabled "Bin fertig" button, other has disabled
       let activePage = page1IsTurn ? page1 : page2;
       let waitingPage = page1IsTurn ? page2 : page1;
 
-      await expect(activePage.locator('#end-turn-btn')).toBeVisible();
-      await expect(waitingPage.locator('#end-turn-btn')).not.toBeVisible();
+      await expect(activePage.locator('#end-turn-btn')).toBeEnabled();
+      await expect(waitingPage.locator('#end-turn-btn')).toBeDisabled();
 
       // Active participant is highlighted
       await expect(page1.locator('.participant-active')).toBeVisible();
@@ -74,8 +74,8 @@ test.describe('Magic Estimation Turn-Based Mode', () => {
       // Control should have passed
       await expect(waitingPage.locator('text=Du bist dran!')).toBeVisible({ timeout: 5000 });
       await expect(activePage.locator('text=ist dran...')).toBeVisible({ timeout: 5000 });
-      await expect(waitingPage.locator('#end-turn-btn')).toBeVisible();
-      await expect(activePage.locator('#end-turn-btn')).not.toBeVisible();
+      await expect(waitingPage.locator('#end-turn-btn')).toBeEnabled();
+      await expect(activePage.locator('#end-turn-btn')).toBeDisabled();
 
       // Moved issue should be highlighted for new active user
       const movedIssue = waitingPage.locator(`.issue-card[data-id="${issueId}"]`);
