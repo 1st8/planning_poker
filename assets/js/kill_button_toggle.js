@@ -1,14 +1,14 @@
-// Add logic to handle the triple-click event for showing the kill button
+// Add logic to handle the triple-click event for showing hidden admin buttons
 let clickCount = 0;
 let clickTimeout;
 
 document.body.addEventListener("click", () => {
   clickCount++;
   if (clickCount === 3) {
-    const killButton = document.getElementById("kill-button");
-    if (killButton) {
-      killButton.classList.remove("hidden");
-    }
+    // Show all buttons with the recently_opened class
+    document.querySelectorAll(".recently_opened.hidden").forEach((button) => {
+      button.classList.remove("hidden");
+    });
     clickCount = 0;
   }
 

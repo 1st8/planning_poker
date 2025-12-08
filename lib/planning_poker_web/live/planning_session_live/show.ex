@@ -124,6 +124,11 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     {:noreply, socket}
   end
 
+  def handle_event("force_next_turn", _value, socket) do
+    :ok = Planning.end_turn(socket.assigns.planning_session.id)
+    {:noreply, socket}
+  end
+
   def handle_event("back_to_lobby", _value, socket) do
     :ok = Planning.back_to_lobby(socket.assigns.planning_session.id)
     {:noreply, socket}
