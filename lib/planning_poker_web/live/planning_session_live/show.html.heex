@@ -134,22 +134,24 @@
             else: "MagicEstimation"}
         </button>
       <% end %>
-      <button
-        phx-click="kill_planning_session"
-        id="kill-button"
-        class="btn btn-warning btn-sm hidden triple-click-reveal"
-      >
-        Kill
-      </button>
-      <%= if @planning_session.state == :magic_estimation do %>
+      <div class="flex gap-2">
         <button
-          phx-click="force_next_turn"
-          id="force-next-button"
+          phx-click="kill_planning_session"
+          id="kill-button"
           class="btn btn-warning btn-sm hidden triple-click-reveal"
         >
-          Force next
+          Kill
         </button>
-      <% end %>
+        <%= if @planning_session.state == :magic_estimation do %>
+          <button
+            phx-click="force_next_turn"
+            id="force-next-button"
+            class="btn btn-info btn-sm hidden triple-click-reveal"
+          >
+            Force next
+          </button>
+        <% end %>
+      </div>
     </div>
   </div>
 </div>
