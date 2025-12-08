@@ -141,6 +141,15 @@
       >
         Kill
       </button>
+      <%= if @planning_session.state == :magic_estimation do %>
+        <button
+          phx-click="force_next_turn"
+          id="force-next-button"
+          class="btn btn-warning btn-sm hidden recently_opened"
+        >
+          Force next
+        </button>
+      <% end %>
     </div>
   </div>
 </div>
