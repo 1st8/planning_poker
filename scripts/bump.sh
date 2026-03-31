@@ -5,6 +5,7 @@
 
 set -euo pipefail
 
+SED_I=(sed -i"$(if [[ "$OSTYPE" == darwin* ]]; then echo ' '; fi)")
 BUMP="${1:-build}"
 
 # Get latest version tag, default to v0.0.0 if none exists
@@ -27,8 +28,13 @@ NEW_TAG="v${MAJOR}.${MINOR}.${BUILD}"
 NEW_VERSION="${MAJOR}.${MINOR}.${BUILD}"
 
 # Update version in mix.exs
-sed -i"$(if [[ "$OSTYPE" == darwin* ]]; then echo ' '; fi)" "s/version: \"[^\"]*\"/version: \"${NEW_VERSION}\"/" mix.exs
-git add mix.exs
+"${SED_I[@]}" "s/version: \"[^\"]*\"/version: \"${NEW_VERSION}\"/" mix.exs
+
+# Update version and appVersion in chart/Chart.yaml
+"${SED_I[@]}" "s/^version: .*/version: ${NEW_VERSION}/" chart/Chart.yaml
+"${SED_I[@]}" "s/^appVersion: .*/appVersion: \"${NEW_VERSION}\"/" chart/Chart.yaml
+
+git add mix.exs chart/Chart.yaml
 git commit -m "Bump version to ${NEW_VERSION}"
 
 git tag "$NEW_TAG"
