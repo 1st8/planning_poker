@@ -10,8 +10,10 @@ app:
   gitlabClientId: ""
   gitlabClientSecret: ""
   gitlabSite: "https://gitlab.com"
-  # id of list to load issues from
-  listId: null
+  # GitLab group to fetch issues from
+  gitlabGroup: ""
+  # Label to filter issues by
+  gitlabLabel: "Backlog::Planning"
 
 replicaCount: 1
 

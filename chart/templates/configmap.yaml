@@ -7,6 +7,5 @@ data:
   PHX_HOST: {{ .Values.app.host }}
   GITLAB_CLIENT_ID: {{ .Values.app.gitlabClientId }}
   GITLAB_SITE: {{ .Values.app.gitlabSite }}
-  {{ if .Values.app.listId }}
-  DEFAULT_LIST_ID: {{ .Values.app.listId | quote }}
-  {{ end }}
+  GITLAB_GROUP: {{ .Values.app.gitlabGroup }}
+  GITLAB_LABEL: {{ .Values.app.gitlabLabel }}
