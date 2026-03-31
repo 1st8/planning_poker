@@ -94,6 +94,10 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
       })
 
     case Tesla.get(client, "/api/v4/groups/#{encoded_group}/issues?#{query}") do
+      {:ok, %{status: 401}} ->
+        Logger.error("Unauthorized fetching issues (token expired?)")
+        {:error, :unauthorized}
+
       {:ok, env} ->
         issues =
           env.body
@@ -137,6 +141,10 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
            },
            query: @get_issue_query
          }) do
+      {:ok, %{status: 401}} ->
+        Logger.error("Unauthorized fetching issue #{issue_id} (token expired?)")
+        {:error, :unauthorized}
+
       {:ok, env} ->
         issue =
           get_in(env.body, [
@@ -189,6 +197,10 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
     path = "/api/v4/projects/#{encoded_project_id}/issues/#{issue_iid}"
 
     case Tesla.put(client, path, attrs) do
+      {:ok, %{status: 401}} ->
+        Logger.error("Unauthorized updating issue #{issue_iid} (token expired?)")
+        {:error, :unauthorized}
+
       {:ok, env} ->
         issue = env.body
 

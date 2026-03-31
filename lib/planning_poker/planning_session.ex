@@ -1,7 +1,7 @@
 defmodule PlanningPoker.PlanningSession do
   @behaviour :gen_statem
 
-  alias PlanningPoker.{IssueProvider, Planning, IssueSection}
+  alias PlanningPoker.{IssueProvider, Planning, IssueSection, TokenCredentials, TokenRefresh}
 
   # lobby
   # voting
@@ -25,7 +25,7 @@ defmodule PlanningPoker.PlanningSession do
   end
 
   @impl :gen_statem
-  def init(%{id: id, token: token}) do
+  def init(%{id: id, token: %TokenCredentials{} = token}) do
     require Logger
 
     Logger.info("""
@@ -36,6 +36,8 @@ defmodule PlanningPoker.PlanningSession do
     Links: #{inspect(Process.info(self(), :links))}
     """)
 
+    timer_ref = schedule_token_refresh(token)
+
     {:ok, :lobby,
      %{
        id: id,
@@ -43,12 +45,18 @@ defmodule PlanningPoker.PlanningSession do
        options: [1, 2, 3, 5, 8, 13, 21, "?"] |> Enum.map(&to_string/1),
        issues: [],
        token: token,
+       token_refresh_timer: timer_ref,
        mode: :magic_estimation,
        opened_issue_ids: MapSet.new(),
        most_recent_issue_id: nil,
        unestimated_issues: [],
        estimated_issues: []
      }}
+  end
+
+  # Backward compat: wrap plain token strings (mock, tests)
+  def init(%{id: id, token: token}) when is_binary(token) do
+    init(%{id: id, token: TokenCredentials.from_string(token)})
   end
 
   @impl :gen_statem
@@ -509,6 +517,35 @@ defmodule PlanningPoker.PlanningSession do
     {:keep_state, data, [{:reply, from, {:error, :no_current_issue}}]}
   end
 
+  # Token refresh: accept fresher token from reconnecting LiveViews
+  def handle_event(
+        {:call, from},
+        {:update_token, %TokenCredentials{} = new_token},
+        _state,
+        data
+      ) do
+    updated_data =
+      if TokenCredentials.expires_soon?(data.token) and
+           not TokenCredentials.expires_soon?(new_token) do
+        require Logger
+        Logger.info("PlanningSession #{data.id}: accepting fresher token from LiveView")
+
+        if data[:token_refresh_timer], do: Process.cancel_timer(data.token_refresh_timer)
+        timer_ref = schedule_token_refresh(new_token)
+
+        %{data | token: new_token, token_refresh_timer: timer_ref}
+      else
+        data
+      end
+
+    {:keep_state, updated_data, [{:reply, from, :ok}]}
+  end
+
+  # Backward compat: ignore plain string tokens from old sessions
+  def handle_event({:call, from}, {:update_token, _token}, _state, data) do
+    {:keep_state, data, [{:reply, from, :ok}]}
+  end
+
   def handle_event({:call, from}, _event, _content, data) do
     {:keep_state, data, [{:reply, from, {:error, "invalid transition"}}]}
   end
@@ -643,11 +680,110 @@ defmodule PlanningPoker.PlanningSession do
     end
   end
 
+  # Token refresh timer fired
+  def handle_event(:info, :refresh_token, _state, data) do
+    require Logger
+
+    cond do
+      # Already refreshing - skip
+      Map.has_key?(data, :token_refresh_ref) ->
+        Logger.debug("PlanningSession #{data.id}: refresh already in progress, skipping")
+        {:keep_state, data}
+
+      TokenCredentials.refreshable?(data.token) ->
+        Logger.info("PlanningSession #{data.id}: refreshing token")
+
+        task =
+          Task.Supervisor.async_nolink(PlanningPoker.TaskSupervisor, fn ->
+            TokenRefresh.refresh(data.token)
+          end)
+
+        {:keep_state, Map.put(data, :token_refresh_ref, task.ref)}
+
+      true ->
+        Logger.warning("PlanningSession #{data.id}: token not refreshable, skipping")
+        {:keep_state, data}
+    end
+  end
+
+  # Token refresh task succeeded
+  def handle_event(
+        :info,
+        {ref, {:ok, %TokenCredentials{} = new_creds}},
+        _state,
+        %{token_refresh_ref: ref} = data
+      ) do
+    require Logger
+    Process.demonitor(ref, [:flush])
+    Logger.info("PlanningSession #{data.id}: token refreshed successfully")
+
+    timer_ref = schedule_token_refresh(new_creds)
+
+    {:keep_state,
+     data
+     |> Map.delete(:token_refresh_ref)
+     |> Map.put(:token, new_creds)
+     |> Map.put(:token_refresh_timer, timer_ref)}
+  end
+
+  # Token refresh failed: unrecoverable (token revoked or no refresh token)
+  def handle_event(
+        :info,
+        {ref, {:error, reason}},
+        _state,
+        %{token_refresh_ref: ref} = data
+      )
+      when reason in [:token_revoked, :no_refresh_token] do
+    require Logger
+    Process.demonitor(ref, [:flush])
+    Logger.error("PlanningSession #{data.id}: token refresh failed permanently: #{reason}")
+
+    Phoenix.PubSub.broadcast(
+      PlanningPoker.PubSub,
+      Planning.planning_session_topic(data.id),
+      {:token_expired, :refresh_failed}
+    )
+
+    {:keep_state, Map.delete(data, :token_refresh_ref)}
+  end
+
+  # Token refresh failed: transient error (retry in 30s)
+  def handle_event(:info, {ref, {:error, reason}}, _state, %{token_refresh_ref: ref} = data) do
+    require Logger
+    Process.demonitor(ref, [:flush])
+
+    Logger.warning(
+      "PlanningSession #{data.id}: token refresh failed (#{inspect(reason)}), retrying in 30s"
+    )
+
+    timer_ref = Process.send_after(self(), :refresh_token, 30_000)
+
+    {:keep_state,
+     data
+     |> Map.delete(:token_refresh_ref)
+     |> Map.put(:token_refresh_timer, timer_ref)}
+  end
+
   # Handle task crashes/failures (from async_nolink tasks)
   def handle_event(:info, {:DOWN, ref, :process, _pid, reason}, state, data) do
     require Logger
 
     cond do
+      # token refresh task crashed
+      Map.get(data, :token_refresh_ref) == ref ->
+        Logger.warning("""
+        token_refresh task crashed in PlanningSession
+        Session ID: #{inspect(data.id)}
+        Reason: #{inspect(reason)}
+        """)
+
+        timer_ref = Process.send_after(self(), :refresh_token, 30_000)
+
+        {:keep_state,
+         data
+         |> Map.delete(:token_refresh_ref)
+         |> Map.put(:token_refresh_timer, timer_ref)}
+
       # fetch_issues task failed
       Map.get(data, :fetch_issues_ref) == ref ->
         Logger.error("""
@@ -790,6 +926,8 @@ defmodule PlanningPoker.PlanningSession do
     data
     |> Map.drop([
       :token,
+      :token_refresh_ref,
+      :token_refresh_timer,
       :fetch_issues_ref,
       :fetch_issue_ref,
       :update_issue_ref,
@@ -827,7 +965,7 @@ defmodule PlanningPoker.PlanningSession do
   defp fetch_issues(data) do
     task =
       Task.Supervisor.async_nolink(PlanningPoker.TaskSupervisor, fn ->
-        client = IssueProvider.client(token: data.token)
+        client = IssueProvider.client(token: data.token.access_token)
 
         case IssueProvider.fetch_issues(client) do
           {:ok, issues} -> issues
@@ -841,7 +979,7 @@ defmodule PlanningPoker.PlanningSession do
   defp fetch_current_issue(data) do
     task =
       Task.Supervisor.async_nolink(PlanningPoker.TaskSupervisor, fn ->
-        client = IssueProvider.client(token: data.token)
+        client = IssueProvider.client(token: data.token.access_token)
 
         case IssueProvider.fetch_issue(client, data.current_issue["id"]) do
           {:ok, issue} -> issue
@@ -864,7 +1002,7 @@ defmodule PlanningPoker.PlanningSession do
 
     task =
       Task.Supervisor.async_nolink(PlanningPoker.TaskSupervisor, fn ->
-        client = IssueProvider.client(token: data.token)
+        client = IssueProvider.client(token: data.token.access_token)
 
         IssueProvider.update_issue(client, project_id, issue_iid, %{
           description: updated_description
@@ -945,7 +1083,7 @@ defmodule PlanningPoker.PlanningSession do
         task =
           Task.Supervisor.async_nolink(PlanningPoker.TaskSupervisor, fn ->
             Logger.info("Executing update for issue ##{issue_iid} with weight=#{weight}")
-            client = IssueProvider.client(token: data.token)
+            client = IssueProvider.client(token: data.token.access_token)
 
             result =
               IssueProvider.update_issue(client, project_id, issue_iid, %{
@@ -969,5 +1107,16 @@ defmodule PlanningPoker.PlanningSession do
     |> Map.put(:weight_update_total, length(tasks))
     |> Map.put(:weight_update_completed, 0)
     |> Map.put(:weight_update_failures, [])
+  end
+
+  # Schedule token refresh 5 minutes before expiry.
+  # Returns the timer ref or nil if no refresh is needed.
+  defp schedule_token_refresh(%TokenCredentials{expires_at: nil}), do: nil
+
+  defp schedule_token_refresh(%TokenCredentials{expires_at: expires_at}) do
+    require Logger
+    ms_until_refresh = max((expires_at - 300 - System.system_time(:second)) * 1000, 0)
+    Logger.debug("Scheduling token refresh in #{div(ms_until_refresh, 1000)}s")
+    Process.send_after(self(), :refresh_token, ms_until_refresh)
   end
 end

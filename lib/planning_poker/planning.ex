@@ -13,6 +13,9 @@ defmodule PlanningPoker.Planning do
         Process alive: #{Process.alive?(pid)}
         """)
 
+        # Offer the potentially fresher token to the existing session
+        :gen_statem.call(pid, {:update_token, token})
+
         {:ok, pid}
 
       [] ->

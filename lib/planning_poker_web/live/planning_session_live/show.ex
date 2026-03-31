@@ -154,6 +154,13 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     {:noreply, socket}
   end
 
+  def handle_info({:token_expired, _reason}, socket) do
+    {:noreply,
+     socket
+     |> put_flash(:error, "Deine GitLab-Sitzung ist abgelaufen. Bitte melde dich erneut an.")
+     |> redirect(to: "/auth/logout")}
+  end
+
   def handle_info({:weight_update_errors, failures}, socket) do
     # Show error flash for failed weight updates
     error_count = length(failures)

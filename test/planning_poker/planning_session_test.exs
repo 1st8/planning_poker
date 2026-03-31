@@ -143,18 +143,11 @@ defmodule PlanningPoker.PlanningSessionTest do
     end
 
     test "broadcasts state changes on section operations", %{pid: pid} do
-      # Clear any initial state change messages
-      receive do
-        {:state_change, _} -> :ok
-      after
-        0 -> :ok
-      end
-
-      # Lock a section
+      # Lock a section (synchronous call)
       :gen_statem.call(pid, {:lock_section, "section-0", "user-123"})
 
-      # Should receive broadcast
-      assert_receive {:state_change, state}
+      # Drain all state_change messages and verify the last one has the lock
+      state = receive_latest_state_change()
       assert state.state == :voting
       section = Enum.find(state.current_issue["sections"], &(&1["id"] == "section-0"))
       assert section["locked_by"]["id"] == "user-123"
@@ -573,6 +566,16 @@ defmodule PlanningPoker.PlanningSessionTest do
       state = :gen_statem.call(pid, :get_state)
       # Only one issue to update
       assert state.weight_update_total == 1
+    end
+  end
+
+  # Receives all pending state_change messages and returns the last one.
+  # Waits up to 100ms for the first message if none is available yet.
+  defp receive_latest_state_change(latest \\ nil) do
+    receive do
+      {:state_change, state} -> receive_latest_state_change(state)
+    after
+      if(latest, do: 0, else: 100) -> latest
     end
   end
 end
