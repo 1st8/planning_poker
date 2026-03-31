@@ -2,13 +2,14 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
   @moduledoc """
   GitLab issue provider adapter.
 
-  Integrates with GitLab's GraphQL API to fetch issues from a configured board list.
+  Integrates with GitLab's REST and GraphQL APIs to fetch and manage issues.
 
   ## Configuration
 
   Requires the following environment variables:
   - `GITLAB_SITE` - GitLab instance URL (defaults to "https://gitlab.com")
-  - `DEFAULT_LIST_ID` - Board list ID to fetch issues from (defaults to 9_945_417)
+  - `GITLAB_GROUP` - GitLab group path to fetch issues from (e.g., "tixxt")
+  - `GITLAB_LABEL` - Label to filter issues by (defaults to "Backlog::Planning")
 
   ## Authentication
 
@@ -21,21 +22,6 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
   require Logger
 
   @behaviour PlanningPoker.IssueProvider
-
-  @board_list_query """
-    query ListIssues($listId: ListID!, $filters: BoardIssueInput!) {
-      boardList(id: $listId) {
-        issues(filters: $filters) {
-          nodes {
-            id
-            title
-            referencePath: reference(full: true)
-            webUrl
-          }
-        }
-      }
-    }
-  """
 
   @get_issue_query """
     query GetIssue($issueId: IssueID!) {
@@ -74,56 +60,47 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
   end
 
   @doc """
-  Fetches issues from a GitLab board list.
+  Fetches issues from a GitLab group by label.
 
-  Returns a list of issues with basic information suitable for the planning session lobby.
-  Only fetches issues without estimates (weight: "None" filter).
+  Returns open issues without weight (unestimated) matching the configured label.
 
   ## Options
 
-  - `:list_id` - The board list ID to fetch from (defaults to DEFAULT_LIST_ID env var or 9_945_417)
+  - `:group` - GitLab group path (defaults to GITLAB_GROUP env var)
+  - `:label` - Label to filter by (defaults to GITLAB_LABEL env var or "Backlog::Planning")
 
   ## Returns
 
   - `{:ok, issues}` where issues is a list of maps with id, title, referencePath, webUrl
   - `{:error, reason}` on failure
-
-  ## Example
-
-      iex> client = Gitlab.client(token: "oauth-token")
-      iex> {:ok, issues} = Gitlab.fetch_issues(client, list_id: 9_945_417)
-      {:ok, [
-        %{
-          "id" => "gid://gitlab/Issue/96438580",
-          "referencePath" => "1st8/planning_poker#1",
-          "title" => "Add feature X",
-          "webUrl" => "https://gitlab.com/1st8/planning_poker/-/issues/1"
-        }
-      ]}
   """
   @impl PlanningPoker.IssueProvider
   def fetch_issues(client, opts \\ []) do
-    # default id is "Open" list of https://gitlab.com/1st8/planning_poker/-/boards/3468418
-    list_id = Keyword.get(opts, :list_id, System.get_env("DEFAULT_LIST_ID") || 9_945_417)
+    group = Keyword.get(opts, :group, System.get_env("GITLAB_GROUP"))
+    label = Keyword.get(opts, :label, System.get_env("GITLAB_LABEL", "Backlog::Planning"))
 
-    case Tesla.post(client, "/api/graphql", %{
-           operationName: "ListIssues",
-           variables: %{
-             filters: %{weight: "None"},
-             listId: "gid://gitlab/List/#{list_id}"
-           },
-           query: @board_list_query
-         }) do
+    unless group do
+      raise "GITLAB_GROUP environment variable must be set"
+    end
+
+    encoded_group = URI.encode_www_form(group)
+
+    query =
+      URI.encode_query(%{
+        "labels" => label,
+        "state" => "opened",
+        "weight" => "None",
+        "per_page" => "100"
+      })
+
+    case Tesla.get(client, "/api/v4/groups/#{encoded_group}/issues?#{query}") do
       {:ok, env} ->
         issues =
-          get_in(env.body, [
-            "data",
-            "boardList",
-            "issues",
-            "nodes"
-          ]) || []
+          env.body
+          |> List.wrap()
+          |> Enum.map(&normalize_rest_list_issue/1)
 
-        Logger.debug("Fetched #{Enum.count(issues)} issues list_id=#{inspect(list_id)}")
+        Logger.debug("Fetched #{length(issues)} issues group=#{group} label=#{label}")
         {:ok, issues}
 
       {:error, reason} = error ->
@@ -249,6 +226,15 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
       "createdAt" => issue["created_at"]
     }
     |> maybe_add_epic(issue)
+  end
+
+  defp normalize_rest_list_issue(issue) do
+    %{
+      "id" => "gid://gitlab/Issue/#{issue["id"]}",
+      "title" => issue["title"],
+      "referencePath" => get_in(issue, ["references", "full"]),
+      "webUrl" => issue["web_url"]
+    }
   end
 
   defp maybe_add_epic(result, issue) do
