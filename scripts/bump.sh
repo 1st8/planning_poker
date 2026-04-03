@@ -5,7 +5,11 @@
 
 set -euo pipefail
 
-SED_I=(sed -i"$(if [[ "$OSTYPE" == darwin* ]]; then echo ' '; fi)")
+if [[ "$OSTYPE" == darwin* ]]; then
+  SED_I=(sed -i '')
+else
+  SED_I=(sed -i)
+fi
 BUMP="${1:-build}"
 
 # Get latest version tag, default to v0.0.0 if none exists
