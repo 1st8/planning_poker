@@ -190,16 +190,17 @@ defmodule PlanningPoker.PlanningSession do
     participants = Planning.get_participants!(data.id)
     turn_order = participants |> Enum.map(& &1.id) |> Enum.shuffle()
 
-    data = %{
-      data
-      | unestimated_issues: data.issues ++ markers,
-        # Add markers to the estimated column initially
-        estimated_issues: []
-    }
-    |> Map.put(:turn_order, turn_order)
-    |> Map.put(:current_turn_index, 0)
-    |> Map.put(:current_turn_moves, [])
-    |> Map.put(:previous_turn_moves, [])
+    data =
+      %{
+        data
+        | unestimated_issues: data.issues ++ markers,
+          # Add markers to the estimated column initially
+          estimated_issues: []
+      }
+      |> Map.put(:turn_order, turn_order)
+      |> Map.put(:current_turn_index, 0)
+      |> Map.put(:current_turn_moves, [])
+      |> Map.put(:previous_turn_moves, [])
 
     broadcast_state_change(:magic_estimation, data)
     {:next_state, :magic_estimation, data, [{:reply, from, :ok}]}

@@ -110,13 +110,11 @@
     />
 
     <%= if @planning_session.state == :magic_estimation do %>
-      <%
-        turn_order = Map.get(@planning_session, :turn_order, [])
-        current_index = Map.get(@planning_session, :current_turn_index, 0)
-        active_participant_id = Enum.at(turn_order, current_index)
-        is_my_turn = active_participant_id == @current_participant.id
-        active_participant = Enum.find(@participants, fn p -> p.id == active_participant_id end)
-      %>
+      <% turn_order = Map.get(@planning_session, :turn_order, [])
+      current_index = Map.get(@planning_session, :current_turn_index, 0)
+      active_participant_id = Enum.at(turn_order, current_index)
+      is_my_turn = active_participant_id == @current_participant.id
+      active_participant = Enum.find(@participants, fn p -> p.id == active_participant_id end) %>
       <.live_component
         module={PlanningPokerWeb.PlanningSessionLive.TurnControlsComponent}
         id="turn-controls"

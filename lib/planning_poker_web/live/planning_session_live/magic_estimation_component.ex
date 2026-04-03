@@ -14,7 +14,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent do
         data-id={@item["id"]}
       >
         <div class="flex gap-4 items-center justify-center">
-          <span class="font-bold text-lg"><%= @item["value"] %></span>
+          <span class="font-bold text-lg">{@item["value"]}</span>
         </div>
       </div>
     <% else %>

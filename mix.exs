@@ -34,7 +34,6 @@ defmodule PlanningPoker.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
-      {:tidewave, "~> 0.5", only: [:dev]},
       {:usage_rules, "~> 0.1", only: [:dev]},
       {:phoenix, "~> 1.8.1"},
       {:phoenix_html, "~> 4.1"},

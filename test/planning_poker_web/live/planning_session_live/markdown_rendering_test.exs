@@ -199,4 +199,82 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MarkdownRenderingTest do
       refute html =~ "![Beiträge_und_Interessantes]"
     end
   end
+
+  describe "video URL rendering" do
+    test "renders .mp4 URLs as video elements instead of img" do
+      markdown = "![demo video](https://example.com/video.mp4)"
+
+      html = render_markdown(markdown)
+
+      assert html =~ "<video"
+      assert html =~ "controls"
+      assert html =~ "muted"
+      assert html =~ ~s(max-width: 100%)
+      assert html =~ ~s(<source src="https://example.com/video.mp4" type="video/mp4")
+      refute html =~ "<img"
+    end
+
+    test "renders .webm URLs as video elements" do
+      markdown = "![screen recording](https://example.com/recording.webm)"
+
+      html = render_markdown(markdown)
+
+      assert html =~ "<video"
+      assert html =~ ~s(<source src="https://example.com/recording.webm" type="video/webm")
+      assert html =~ ~s(title="screen recording")
+      refute html =~ "<img"
+    end
+
+    test "renders .mov URLs as video elements" do
+      markdown = "![clip](https://example.com/clip.mov)"
+
+      html = render_markdown(markdown)
+
+      assert html =~ "<video"
+      assert html =~ ~s(type="video/quicktime")
+      refute html =~ "<img"
+    end
+
+    test "renders .ogg URLs as video elements" do
+      markdown = "![clip](https://example.com/clip.ogg)"
+
+      html = render_markdown(markdown)
+
+      assert html =~ "<video"
+      assert html =~ ~s(type="video/ogg")
+      refute html =~ "<img"
+    end
+
+    test "does not convert regular image URLs to video" do
+      markdown = "![photo](https://example.com/photo.png)"
+
+      html = render_markdown(markdown)
+
+      assert html =~ "<img"
+      refute html =~ "<video"
+    end
+
+    test "handles video URLs with query parameters" do
+      markdown = "![video](https://example.com/video.mp4?token=abc123)"
+
+      html = render_markdown(markdown)
+
+      assert html =~ "<video"
+      assert html =~ ~s(<source src="https://example.com/video.mp4?token=abc123")
+      refute html =~ "<img"
+    end
+
+    test "handles mixed images and videos in the same content" do
+      markdown = """
+      ![screenshot](https://example.com/image.png)
+
+      ![demo](https://example.com/demo.mp4)
+      """
+
+      html = render_markdown(markdown)
+
+      assert html =~ "<img"
+      assert html =~ "<video"
+    end
+  end
 end

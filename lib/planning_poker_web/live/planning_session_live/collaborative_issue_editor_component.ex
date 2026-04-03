@@ -272,10 +272,12 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
       unsafe_: true
     ],
     sanitize: [
-      add_tags: ["details", "summary", "input", "img"],
+      add_tags: ["details", "summary", "input", "img", "video", "source"],
       add_tag_attributes: %{
         "input" => ["type", "checked", "disabled"],
-        "img" => ["src", "alt", "title"]
+        "img" => ["src", "alt", "title"],
+        "video" => ["controls", "muted", "style", "title"],
+        "source" => ["src", "type"]
       }
     ]
   ]
@@ -285,6 +287,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
     |> fix_image_urls_with_spaces()
     |> MDEx.to_html!(@mdex_options)
     |> postprocess_details_blocks()
+    |> convert_video_images_to_video_tags()
   rescue
     _ ->
       "<p>Error rendering markdown</p>"
@@ -322,6 +325,50 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
         "<details>#{processed_inner}</details>"
       end
     )
+  end
+
+  @video_extensions ~w(.mp4 .webm .mov .ogg)
+
+  # Convert <img> tags with video URLs to <video> elements.
+  # When markdown like ![alt](video.mp4) is rendered, it produces an <img> tag
+  # pointing to a video file. This replaces those with proper <video> players.
+  defp convert_video_images_to_video_tags(html) do
+    Regex.replace(
+      ~r/<img\s+src="([^"]+)"(?:\s+alt="([^"]*)")?[^>]*\/?>/,
+      html,
+      fn _match, src, alt ->
+        if has_video_extension?(src) do
+          type = video_mime_type(src)
+          title = if alt != "", do: ~s( title="#{alt}"), else: ""
+
+          ~s(<video controls muted style="max-width: 100%"#{title}>) <>
+            ~s(<source src="#{src}" type="#{type}" />) <>
+            ~s(Your browser does not support the video tag.</video>)
+        else
+          _match
+        end
+      end
+    )
+  end
+
+  defp has_video_extension?(url) do
+    # Strip query string/fragment before checking extension
+    path = url |> URI.parse() |> Map.get(:path, url) || url
+    downcased = String.downcase(path)
+    Enum.any?(@video_extensions, &String.ends_with?(downcased, &1))
+  end
+
+  defp video_mime_type(url) do
+    path = url |> URI.parse() |> Map.get(:path, url) || url
+    downcased = String.downcase(path)
+
+    cond do
+      String.ends_with?(downcased, ".mp4") -> "video/mp4"
+      String.ends_with?(downcased, ".webm") -> "video/webm"
+      String.ends_with?(downcased, ".mov") -> "video/quicktime"
+      String.ends_with?(downcased, ".ogg") -> "video/ogg"
+      true -> "video/mp4"
+    end
   end
 
   # Re-process content inside a <details> block.
