@@ -200,6 +200,98 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MarkdownRenderingTest do
     end
   end
 
+  describe "HTML comment stripping" do
+    test "strips standard HTML comments" do
+      markdown = "Hello\n\n<!-- this is a comment -->\n\nWorld"
+
+      html = render_markdown(markdown)
+
+      assert html =~ "Hello"
+      assert html =~ "World"
+      refute html =~ "this is a comment"
+      refute html =~ "<!--"
+      refute html =~ "-->"
+    end
+
+    test "strips inline HTML comments" do
+      markdown = "Hello <!-- hidden --> World"
+
+      html = render_markdown(markdown)
+
+      assert html =~ "Hello"
+      assert html =~ "World"
+      refute html =~ "hidden"
+    end
+
+    test "strips multiline HTML comments" do
+      markdown = "before\n\n<!--\nmultiline\ncomment\n-->\n\nafter"
+
+      html = render_markdown(markdown)
+
+      assert html =~ "before"
+      assert html =~ "after"
+      refute html =~ "multiline"
+      refute html =~ "comment"
+    end
+
+    test "strips malformed <!--> comment pattern" do
+      markdown = "<!-->\nSome content\n-->"
+
+      html = render_markdown(markdown)
+
+      refute html =~ "Some content"
+      refute html =~ "-->"
+    end
+
+    test "strips nested comment patterns without leaking content" do
+      markdown = "<!-- <!-- nested --> -->"
+
+      html = render_markdown(markdown)
+
+      refute html =~ "nested"
+      refute html =~ "-->"
+    end
+
+    test "strips comment-only sections to empty output" do
+      markdown = "<!-- just a comment -->"
+
+      html = render_markdown(markdown)
+
+      assert html == ""
+    end
+
+    test "strips comments with metadata content" do
+      markdown = "# Title\n\n<!-- weight: 5 -->\n\nDescription"
+
+      html = render_markdown(markdown)
+
+      assert html =~ "Title"
+      assert html =~ "Description"
+      refute html =~ "weight"
+    end
+
+    test "preserves arrow notation in regular text" do
+      markdown = "value --> result"
+
+      html = render_markdown(markdown)
+
+      # The arrow text should be preserved (possibly with smart typography)
+      stripped = html |> String.replace(~r/<[^>]+>/, "")
+      assert stripped =~ "value"
+      assert stripped =~ "result"
+    end
+
+    test "strips HTML comments inside details blocks" do
+      markdown =
+        "<details>\n<summary>Info</summary>\n\n<!-- hidden note -->\n\nVisible content\n\n</details>"
+
+      html = render_markdown(markdown)
+
+      assert html =~ "Visible content"
+      refute html =~ "hidden note"
+    end
+  end
+
   describe "video URL rendering" do
     test "renders .mp4 URLs as video elements instead of img" do
       markdown = "![demo video](https://example.com/video.mp4)"

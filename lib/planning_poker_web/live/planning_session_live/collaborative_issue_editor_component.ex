@@ -284,6 +284,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
 
   def render_markdown(content) do
     content
+    |> strip_html_comments()
     |> fix_image_urls_with_spaces()
     |> MDEx.to_html!(@mdex_options)
     |> postprocess_details_blocks()
@@ -291,6 +292,21 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
   rescue
     _ ->
       "<p>Error rendering markdown</p>"
+  end
+
+  # Strip HTML comments from markdown before rendering.
+  # The MDEx sanitizer handles well-formed comments (<!-- ... -->) but certain
+  # malformed patterns like <!--> or nested <!-- can cause comment text to leak
+  # through as visible content. Pre-stripping ensures all comment variants are
+  # removed before the markdown parser sees them.
+  defp strip_html_comments(content) do
+    content
+    # Match standard and malformed comments: <!-- ... --> and <!-- ... --!>
+    |> String.replace(~r/<!--.*?--!?>/s, "")
+    # Handle <!--> (empty/malformed comment start-close)
+    |> String.replace(~r/<!-->/s, "")
+    # Clean up orphaned --> on its own line (leftover from nested comment stripping)
+    |> String.replace(~r/^[ \t]*-->[ \t]*$/m, "")
   end
 
   # Fix markdown image URLs that contain spaces by URL-encoding the spaces.
@@ -336,7 +352,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
     Regex.replace(
       ~r/<img\s+src="([^"]+)"(?:\s+alt="([^"]*)")?[^>]*\/?>/,
       html,
-      fn _match, src, alt ->
+      fn match, src, alt ->
         if has_video_extension?(src) do
           type = video_mime_type(src)
           title = if alt != "", do: ~s( title="#{alt}"), else: ""
@@ -345,7 +361,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
             ~s(<source src="#{src}" type="#{type}" />) <>
             ~s(Your browser does not support the video tag.</video>)
         else
-          _match
+          match
         end
       end
     )
