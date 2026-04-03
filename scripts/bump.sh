@@ -30,11 +30,14 @@ NEW_VERSION="${MAJOR}.${MINOR}.${BUILD}"
 # Update version in mix.exs
 "${SED_I[@]}" "s/version: \"[^\"]*\"/version: \"${NEW_VERSION}\"/" mix.exs
 
-# Update version and appVersion in chart/Chart.yaml
-"${SED_I[@]}" "s/^version: .*/version: ${NEW_VERSION}/" chart/Chart.yaml
-"${SED_I[@]}" "s/^appVersion: .*/appVersion: \"${NEW_VERSION}\"/" chart/Chart.yaml
-
-git add mix.exs chart/Chart.yaml
+# Update version and appVersion in chart/Chart.yaml (if present)
+if [ -f chart/Chart.yaml ]; then
+  "${SED_I[@]}" "s/^version: .*/version: ${NEW_VERSION}/" chart/Chart.yaml
+  "${SED_I[@]}" "s/^appVersion: .*/appVersion: \"${NEW_VERSION}\"/" chart/Chart.yaml
+  git add mix.exs chart/Chart.yaml
+else
+  git add mix.exs
+fi
 git commit -m "Bump version to ${NEW_VERSION}"
 
 git tag "$NEW_TAG"

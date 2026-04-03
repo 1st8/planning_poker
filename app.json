@@ -1,0 +1,19 @@
+{
+  "scripts": {
+    "dokku": {
+      "predeploy": "/app/bin/migrate"
+    }
+  },
+  "healthchecks": {
+    "web": [
+      {
+        "type": "startup",
+        "name": "web check",
+        "path": "/system/liveness",
+        "attempts": 10,
+        "wait": 5,
+        "timeout": 3
+      }
+    ]
+  }
+}

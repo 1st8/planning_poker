@@ -35,6 +35,13 @@ defmodule PlanningPokerWeb.Router do
     get "/proxy/project/:project_id/uploads/*path", UploadsProxyController, :fetch
   end
 
+  # Health check for Dokku / load balancers (no auth)
+  scope "/system", PlanningPokerWeb do
+    pipe_through :api
+
+    get "/liveness", HealthController, :liveness
+  end
+
   # Other scopes may use custom stacks.
   # scope "/api", PlanningPokerWeb do
   #   pipe_through :api
