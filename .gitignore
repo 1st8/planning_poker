@@ -34,9 +34,18 @@ planning_poker-*.tar
 # In case you use Node.js/npm, you want to ignore these.
 npm-debug.log
 /assets/node_modules/
-/node_modules/
 
-# Playwright E2E test artifacts
+# Environment files
+.env
+.env.local
+
+# Claude Code local files
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
+
+# E2E test artifacts
+/node_modules/
+/test/e2e/node_modules/
 /test/e2e/test-results/
 /test/e2e/playwright-report/
 /test/e2e/.cache/
@@ -44,7 +53,8 @@ npm-debug.log
 playwright-report/
 test-results/
 
+# Editor / tooling
 .elixir_ls
 config/.env.exs
-.claude/settings.local.json
 .playwright-mcp
+
