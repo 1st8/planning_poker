@@ -7,6 +7,10 @@ defmodule PlanningPoker.PlanningSessionTest do
     # Create a unique ID for each test
     session_id = "test-session-#{:erlang.unique_integer()}"
 
+    # Subscribe to state changes BEFORE starting the session to avoid missing
+    # the initial fetch_issues broadcast that fires when the session enters :lobby.
+    Phoenix.PubSub.subscribe(PlanningPoker.PubSub, "planning_sessions:#{session_id}")
+
     # Start the session
     {:ok, pid} =
       PlanningSession.start_link(
@@ -14,8 +18,11 @@ defmodule PlanningPoker.PlanningSessionTest do
         args: %{id: session_id, token: "fake-token"}
       )
 
-    # Subscribe to state changes
-    Phoenix.PubSub.subscribe(PlanningPoker.PubSub, "planning_sessions:#{session_id}")
+    # Wait for the initial fetch_issues async task to complete before tests run.
+    # The session enters :lobby on init, which triggers an async fetch_issues task.
+    # When that task completes, it broadcasts a :state_change message. If we don't
+    # drain this message here, it can race with test assertions and cause flaky failures.
+    assert_receive {:state_change, %{state: :lobby}}, 1000
 
     on_exit(fn ->
       if Process.alive?(pid), do: Process.exit(pid, :kill)
@@ -299,11 +306,16 @@ defmodule PlanningPoker.PlanningSessionTest do
     end
 
     test "transitions to lobby immediately when no modifications", %{pid: pid} do
+      # Drain any pending state_change messages before the test assertion
+      flush_state_changes()
+
       # Call save_and_back_to_lobby without any modifications
       assert :gen_statem.call(pid, :save_and_back_to_lobby) == :ok
 
       # Should receive state change to lobby
-      assert_receive {:state_change, state}
+      # Use receive_until_lobby to skip any intermediate state changes
+      # (e.g., from the fetch_issues task triggered by re-entering :lobby)
+      state = receive_until_state(:lobby)
       assert state.state == :lobby
     end
 
@@ -447,19 +459,15 @@ defmodule PlanningPoker.PlanningSessionTest do
       # Start magic estimation
       :gen_statem.call(pid, :start_magic_estimation)
 
-      # Clear any pending messages
-      _cleared = clear_all_messages()
+      # Drain any pending state_change messages
+      flush_state_changes()
 
       # Complete estimation without moving any issues
       assert :gen_statem.call(pid, :complete_estimation) == :ok
 
-      # Should transition to lobby immediately (no weights to update)
-      # There might be multiple state changes (from complete_estimation and from fetch_issues refresh)
-      # So let's collect a few and check that we eventually get to lobby
-      states = collect_state_changes(2)
-
-      # At least one state should be lobby
-      assert Enum.any?(states, fn {_, s} -> s.state == :lobby end)
+      # Should transition to lobby (no weights to update)
+      state = receive_until_state(:lobby)
+      assert state.state == :lobby
     end
 
     test "complete_estimation with estimated issues creates update tasks", %{pid: pid} do
@@ -477,55 +485,22 @@ defmodule PlanningPoker.PlanningSessionTest do
         {:update_issue_position, "mock-issue-1", "unestimated-issues", "estimated-issues", 1}
       )
 
-      # Clear any pending messages
-      _cleared = clear_all_messages()
+      # Drain any pending state_change messages
+      flush_state_changes()
 
       # Complete estimation
       assert :gen_statem.call(pid, :complete_estimation) == :ok
 
-      # Collect state_change messages
-      states = collect_state_changes(3)
-
       # First state should be magic_estimation with updating_weights=true
-      {_, first_state} = List.first(states)
+      assert_receive {:state_change, first_state}, 1000
       assert first_state.state == :magic_estimation
       assert first_state.updating_weights == true
       assert first_state.weight_update_total == 1
       assert first_state.weight_update_completed == 0
 
       # Eventually should transition to lobby (updates complete)
-      final_state = List.last(states) |> elem(1)
+      final_state = receive_until_state(:lobby)
       assert final_state.state == :lobby
-    end
-
-    defp clear_all_messages() do
-      clear_all_messages(0)
-    end
-
-    defp clear_all_messages(count) do
-      receive do
-        {:state_change, _} -> clear_all_messages(count + 1)
-      after
-        10 -> count
-      end
-    end
-
-    defp collect_state_changes(max_count) do
-      collect_state_changes(0, max_count, [])
-    end
-
-    defp collect_state_changes(count, max_count, acc) when count >= max_count do
-      Enum.reverse(acc)
-    end
-
-    defp collect_state_changes(count, max_count, acc) do
-      receive do
-        {:state_change, state} ->
-          collect_state_changes(count + 1, max_count, [{count + 1, state} | acc])
-      after
-        100 ->
-          Enum.reverse(acc)
-      end
     end
 
     test "issues before first marker are not assigned weights", %{pid: pid} do
@@ -557,15 +532,20 @@ defmodule PlanningPoker.PlanningSessionTest do
       ids = Enum.map(state.estimated_issues, & &1["id"])
       assert ids == ["mock-issue-1", "marker/2", "mock-issue-2"]
 
+      # Drain pending messages before completing estimation
+      flush_state_changes()
+
       # Complete estimation (this would only update mock-issue-2 with weight=2)
       :gen_statem.call(pid, :complete_estimation)
 
       # The weight map should only contain mock-issue-2
       # mock-issue-1 should not be in the map (it's before the first marker)
-      # We can verify this by checking the update task count
-      state = :gen_statem.call(pid, :get_state)
-      # Only one issue to update
-      assert state.weight_update_total == 1
+      # We verify this by checking the first state_change broadcast after complete_estimation,
+      # which shows the updating_weights state before async tasks may complete.
+      assert_receive {:state_change, updating_state}, 1000
+      assert updating_state.state == :magic_estimation
+      assert updating_state.updating_weights == true
+      assert updating_state.weight_update_total == 1
     end
   end
 
@@ -576,6 +556,39 @@ defmodule PlanningPoker.PlanningSessionTest do
       {:state_change, state} -> receive_latest_state_change(state)
     after
       if(latest, do: 0, else: 100) -> latest
+    end
+  end
+
+  # Drains all pending :state_change messages from the process mailbox.
+  # Useful to ensure a clean starting point before test assertions.
+  defp flush_state_changes do
+    receive do
+      {:state_change, _} -> flush_state_changes()
+    after
+      10 -> :ok
+    end
+  end
+
+  # Waits for a :state_change message with the expected state, skipping
+  # any intermediate state changes. Times out after 1 second.
+  defp receive_until_state(expected_state, deadline \\ nil) do
+    deadline = deadline || System.monotonic_time(:millisecond) + 1000
+
+    remaining = deadline - System.monotonic_time(:millisecond)
+
+    if remaining <= 0 do
+      raise "Timed out waiting for state #{inspect(expected_state)}"
+    end
+
+    receive do
+      {:state_change, %{state: ^expected_state} = state} ->
+        state
+
+      {:state_change, _other} ->
+        receive_until_state(expected_state, deadline)
+    after
+      remaining ->
+        raise "Timed out waiting for state #{inspect(expected_state)}"
     end
   end
 end
