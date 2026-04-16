@@ -102,9 +102,61 @@ body {
 }
 
 /* Magic estimation: hook class for cards that have been magically placed.
-   Subtask 6 will add the polished sparkle animation here. */
-.magic-applied {
-  /* placeholder hook for subtask 6 styling */
+   Sparkle animation fires whenever the class is present after a LiveView
+   patch — acceptable for this short-duration effect (< 400ms). */
+@media (prefers-reduced-motion: no-preference) {
+  .magic-applied {
+    animation: magic-sparkle 380ms ease-out;
+    position: relative;
+  }
+
+  .magic-applied::after {
+    content: "✨";
+    position: absolute;
+    top: -8px;
+    right: -4px;
+    font-size: 18px;
+    animation: magic-sparkle-pop 380ms ease-out;
+    pointer-events: none;
+  }
+
+  @keyframes magic-sparkle {
+    0% {
+      transform: scale(1);
+      box-shadow: 0 0 0 rgba(99, 102, 241, 0);
+    }
+    40% {
+      transform: scale(1.04);
+      box-shadow: 0 0 16px rgba(99, 102, 241, 0.6);
+    }
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 rgba(99, 102, 241, 0);
+    }
+  }
+
+  @keyframes magic-sparkle-pop {
+    0% {
+      opacity: 0;
+      transform: scale(0.6) rotate(-15deg);
+    }
+    40% {
+      opacity: 1;
+      transform: scale(1.2) rotate(10deg);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1) rotate(0deg);
+    }
+  }
+}
+
+/* Reduced-motion fallback: static visual cue, no animation. */
+@media (prefers-reduced-motion: reduce) {
+  .magic-applied {
+    background-color: rgba(99, 102, 241, 0.08);
+    border-left: 3px solid rgb(99, 102, 241);
+  }
 }
 
 /* Subtle pulse on the "Apply magic" controls button to draw attention when

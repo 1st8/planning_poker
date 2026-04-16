@@ -31,6 +31,20 @@ let SortableIssues = {
         dragClass: "sortable-drag",
         ghostClass: "sortable-ghost",
         chosenClass: "sortable-chosen",
+        onStart: (evt) => {
+          // Optimistic client-side cue: when a magically-placed card is
+          // picked up for re-drag, immediately strip the applied visual so
+          // the sparkle/highlight doesn't linger during the drag. The server
+          // clears `magic_applied` for this issue on `update_issue_position`
+          // (subtask 4), so the next broadcast will reflect reality. If the
+          // drag is cancelled, a follow-up broadcast may briefly restore the
+          // class — acceptable, matches server truth.
+          const item = evt.item;
+          if (item && item.classList.contains("magic-applied")) {
+            item.classList.remove("magic-applied");
+            item.removeAttribute("data-magic-applied");
+          }
+        },
         onEnd: (evt) => {
           const issueId = evt.item.dataset.id;
           const fromList = evt.from.dataset.columnId;
