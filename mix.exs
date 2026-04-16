@@ -83,7 +83,12 @@ defmodule PlanningPoker.MixProject do
         "esbuild planning_poker --minify",
         "phx.digest"
       ],
-      precommit: ["compile --warning-as-errors", "deps.unlock --unused", "format", "test"],
+      precommit: [
+        "compile --warning-as-errors",
+        "deps.unlock --unused",
+        "format",
+        "cmd --shell MIX_ENV=test mix test"
+      ],
       e2e: ["cmd npm run e2e:test"],
       "e2e.ui": ["cmd npm run e2e:ui"],
       "e2e.headed": ["cmd npm run e2e:headed"],
