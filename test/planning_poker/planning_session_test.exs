@@ -791,6 +791,271 @@ defmodule PlanningPoker.PlanningSessionTest do
     end
   end
 
+  describe "magic apply" do
+    setup %{pid: pid} do
+      # Seed a known magic_estimation state. Markers cover the default option
+      # set used elsewhere so apply_magic can place into them.
+      issues = [
+        %{"id" => "issue-a", "title" => "A"},
+        %{"id" => "issue-b", "title" => "B"},
+        %{"id" => "issue-c", "title" => "C"}
+      ]
+
+      markers =
+        [1, 2, 3, 5, 8, 13, 21]
+        |> Enum.map(fn v ->
+          %{
+            "id" => "marker/#{v}",
+            "type" => "marker",
+            "value" => Integer.to_string(v),
+            "title" => "#{v} SP"
+          }
+        end)
+
+      turn_order = ["p1", "p2", "p3"]
+
+      :sys.replace_state(pid, fn {_state, data} ->
+        updated =
+          data
+          |> Map.put(:issues, issues)
+          |> Map.put(:unestimated_issues, issues ++ markers)
+          |> Map.put(:estimated_issues, [])
+          |> Map.put(:turn_order, turn_order)
+          |> Map.put(:current_turn_index, 0)
+          |> Map.put(:current_turn_moves, [])
+          |> Map.put(:previous_turn_moves, [])
+          |> Map.put(:magic_hints, %{})
+          |> Map.put(:magic_enabled, false)
+          |> Map.put(:magic_applied, MapSet.new())
+
+        {:magic_estimation, updated}
+      end)
+
+      {:ok, issues: issues, markers: markers, turn_order: turn_order}
+    end
+
+    test "apply_magic returns :magic_disabled when magic is off", %{pid: pid} do
+      # All three vote 5 — issue-a is :ready, but magic is off.
+      seed_unanimous(pid, "issue-a", "5")
+
+      assert :gen_statem.call(pid, {:apply_magic, "issue-a"}) ==
+               {:error, :magic_disabled}
+    end
+
+    test "apply_magic returns :not_ready when issue is :pending", %{pid: pid} do
+      :gen_statem.call(pid, {:toggle_magic, true})
+      # Only one of three has voted — :pending.
+      :gen_statem.call(
+        pid,
+        {:update_magic_hints, "p1", %{"issue-a" => %{"raw_head" => "5"}}}
+      )
+
+      assert :gen_statem.call(pid, {:apply_magic, "issue-a"}) ==
+               {:error, :not_ready}
+    end
+
+    test "apply_magic returns :already_placed when issue already in estimated", %{pid: pid} do
+      :gen_statem.call(pid, {:toggle_magic, true})
+      seed_unanimous(pid, "issue-a", "5")
+
+      assert :gen_statem.call(pid, {:apply_magic, "issue-a"}) == :ok
+
+      assert :gen_statem.call(pid, {:apply_magic, "issue-a"}) ==
+               {:error, :already_placed}
+    end
+
+    test "apply_magic happy path places issue immediately after marker/5", %{pid: pid} do
+      :gen_statem.call(pid, {:toggle_magic, true})
+      seed_unanimous(pid, "issue-a", "5")
+
+      assert :gen_statem.call(pid, {:apply_magic, "issue-a"}) == :ok
+
+      state = :gen_statem.call(pid, :get_state)
+      ids = Enum.map(state.estimated_issues, & &1["id"])
+
+      # marker/5 must be in estimated and issue-a must immediately follow it.
+      idx = Enum.find_index(ids, &(&1 == "marker/5"))
+      assert is_integer(idx)
+      assert Enum.at(ids, idx + 1) == "issue-a"
+
+      assert "issue-a" in state.magic.applied
+      refute Enum.any?(state.unestimated_issues, fn i -> i["id"] == "issue-a" end)
+    end
+
+    test "apply_all_magic places all ready issues with exactly one broadcast",
+         %{pid: pid} do
+      :gen_statem.call(pid, {:toggle_magic, true})
+
+      # Hints are sent as the participant's *full* state — send everything at
+      # once per participant so we don't accidentally overwrite issue-a's hint
+      # while seeding issue-b.
+      seed_full_hints(pid, %{
+        "p1" => %{
+          "issue-a" => %{"raw_head" => "5"},
+          "issue-b" => %{"raw_head" => "3"},
+          "issue-c" => %{"raw_head" => "8"}
+        },
+        "p2" => %{
+          "issue-a" => %{"raw_head" => "5"},
+          "issue-b" => %{"raw_head" => "3"}
+        },
+        "p3" => %{
+          "issue-a" => %{"raw_head" => "5"},
+          "issue-b" => %{"raw_head" => "3"}
+        }
+      })
+
+      flush_state_changes()
+
+      assert {:ok, 2} = :gen_statem.call(pid, :apply_all_magic)
+
+      # Drain all messages within a short window and assert exactly one
+      # :state_change was emitted.
+      broadcasts = drain_state_changes_for(50)
+      assert length(broadcasts) == 1
+
+      [final_state] = broadcasts
+      ids = Enum.map(final_state.estimated_issues, & &1["id"])
+
+      # Both placed issues must follow their target markers.
+      idx_5 = Enum.find_index(ids, &(&1 == "marker/5"))
+      idx_3 = Enum.find_index(ids, &(&1 == "marker/3"))
+
+      assert is_integer(idx_5)
+      assert is_integer(idx_3)
+      assert Enum.at(ids, idx_5 + 1) == "issue-a"
+      assert Enum.at(ids, idx_3 + 1) == "issue-b"
+
+      # Markers must end up ascending in the estimated column.
+      marker_values =
+        ids
+        |> Enum.filter(&String.starts_with?(&1, "marker/"))
+        |> Enum.map(fn "marker/" <> n -> String.to_integer(n) end)
+
+      assert marker_values == Enum.sort(marker_values)
+
+      assert MapSet.new(final_state.magic.applied) ==
+               MapSet.new(["issue-a", "issue-b"])
+
+      # issue-c stayed unestimated.
+      assert Enum.any?(final_state.unestimated_issues, fn i -> i["id"] == "issue-c" end)
+    end
+
+    test "apply_magic auto-pulls markers in ascending order across two calls",
+         %{pid: pid} do
+      :gen_statem.call(pid, {:toggle_magic, true})
+
+      seed_full_hints(pid, %{
+        "p1" => %{
+          "issue-a" => %{"raw_head" => "3"},
+          "issue-b" => %{"raw_head" => "8"}
+        },
+        "p2" => %{
+          "issue-a" => %{"raw_head" => "3"},
+          "issue-b" => %{"raw_head" => "8"}
+        },
+        "p3" => %{
+          "issue-a" => %{"raw_head" => "3"},
+          "issue-b" => %{"raw_head" => "8"}
+        }
+      })
+
+      assert :gen_statem.call(pid, {:apply_magic, "issue-a"}) == :ok
+      assert :gen_statem.call(pid, {:apply_magic, "issue-b"}) == :ok
+
+      state = :gen_statem.call(pid, :get_state)
+      ids = Enum.map(state.estimated_issues, & &1["id"])
+
+      marker_values =
+        ids
+        |> Enum.filter(&String.starts_with?(&1, "marker/"))
+        |> Enum.map(fn "marker/" <> n -> String.to_integer(n) end)
+
+      assert marker_values == Enum.sort(marker_values)
+
+      idx_3 = Enum.find_index(ids, &(&1 == "marker/3"))
+      idx_8 = Enum.find_index(ids, &(&1 == "marker/8"))
+      assert idx_3 < idx_8
+      assert Enum.at(ids, idx_3 + 1) == "issue-a"
+      assert Enum.at(ids, idx_8 + 1) == "issue-b"
+    end
+
+    test "manual drag after apply removes the issue from magic_applied", %{pid: pid} do
+      :gen_statem.call(pid, {:toggle_magic, true})
+      seed_unanimous(pid, "issue-a", "5")
+
+      assert :gen_statem.call(pid, {:apply_magic, "issue-a"}) == :ok
+
+      state = :gen_statem.call(pid, :get_state)
+      assert "issue-a" in state.magic.applied
+
+      # Manually drag it within the estimated column.
+      :gen_statem.call(
+        pid,
+        {:update_issue_position, "issue-a", "estimated-issues", "estimated-issues", 0}
+      )
+
+      state = :gen_statem.call(pid, :get_state)
+      refute "issue-a" in state.magic.applied
+    end
+
+    test "toggle_magic flips the enabled flag and broadcasts", %{pid: pid} do
+      flush_state_changes()
+      assert :gen_statem.call(pid, {:toggle_magic, true}) == :ok
+
+      assert_receive {:state_change, %{magic: %{enabled: true}}}, 500
+
+      assert :gen_statem.call(pid, {:toggle_magic, false}) == :ok
+      assert_receive {:state_change, %{magic: %{enabled: false}}}, 500
+    end
+
+    test "apply_all_magic returns {:ok, 0} when nothing is ready", %{pid: pid} do
+      :gen_statem.call(pid, {:toggle_magic, true})
+      assert {:ok, 0} = :gen_statem.call(pid, :apply_all_magic)
+    end
+
+    test "apply_all_magic returns :magic_disabled when magic is off", %{pid: pid} do
+      assert :gen_statem.call(pid, :apply_all_magic) ==
+               {:error, :magic_disabled}
+    end
+
+    # -- helpers ----------------------------------------------------------
+
+    defp seed_unanimous(pid, issue_id, raw_head) do
+      Enum.each(["p1", "p2", "p3"], fn pid_id ->
+        :gen_statem.call(
+          pid,
+          {:update_magic_hints, pid_id, %{issue_id => %{"raw_head" => raw_head}}}
+        )
+      end)
+    end
+
+    defp seed_full_hints(pid, hints_by_participant) do
+      Enum.each(hints_by_participant, fn {participant_id, hints} ->
+        :gen_statem.call(pid, {:update_magic_hints, participant_id, hints})
+      end)
+    end
+
+    defp drain_state_changes_for(window_ms) do
+      deadline = System.monotonic_time(:millisecond) + window_ms
+      collect_state_changes(deadline, [])
+    end
+
+    defp collect_state_changes(deadline, acc) do
+      remaining = deadline - System.monotonic_time(:millisecond)
+
+      if remaining <= 0 do
+        Enum.reverse(acc)
+      else
+        receive do
+          {:state_change, state} -> collect_state_changes(deadline, [state | acc])
+        after
+          remaining -> Enum.reverse(acc)
+        end
+      end
+    end
+  end
+
   # Receives all pending state_change messages and returns the last one.
   # Waits up to 100ms for the first message if none is available yet.
   defp receive_latest_state_change(latest \\ nil) do

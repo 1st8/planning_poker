@@ -214,6 +214,18 @@ defmodule PlanningPoker.Planning do
     |> :gen_statem.call({:update_magic_hints, participant_id, hints})
   end
 
+  def apply_magic(session_id, issue_id) do
+    session_id |> to_pid |> :gen_statem.call({:apply_magic, issue_id})
+  end
+
+  def apply_all_magic(session_id) do
+    session_id |> to_pid |> :gen_statem.call(:apply_all_magic)
+  end
+
+  def toggle_magic(session_id, bool) when is_boolean(bool) do
+    session_id |> to_pid |> :gen_statem.call({:toggle_magic, bool})
+  end
+
   def lock_section(session_id, section_id, user_id) do
     session_id |> to_pid |> :gen_statem.call({:lock_section, section_id, user_id})
   end

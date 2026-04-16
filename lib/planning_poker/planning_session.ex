@@ -288,15 +288,89 @@ defmodule PlanningPoker.PlanningSession do
         Map.get(data, :current_turn_moves, [])
       end
 
+    # Manual drag overrides any prior magic placement for this issue.
+    magic_applied =
+      data
+      |> Map.get(:magic_applied, MapSet.new())
+      |> MapSet.delete(issue_id)
+
     # Update both lists in the state data
     updated_data =
       data
       |> Map.put(source_list, updated_source)
       |> Map.put(target_list, updated_target)
       |> Map.put(:current_turn_moves, current_turn_moves)
+      |> Map.put(:magic_applied, magic_applied)
 
     broadcast_state_change(:magic_estimation, updated_data)
     {:keep_state, updated_data, [{:reply, from, :ok}]}
+  end
+
+  def handle_event({:call, from}, {:toggle_magic, bool}, :magic_estimation, data)
+      when is_boolean(bool) do
+    updated_data = Map.put(data, :magic_enabled, bool)
+    broadcast_state_change(:magic_estimation, updated_data)
+    {:keep_state, updated_data, [{:reply, from, :ok}]}
+  end
+
+  def handle_event({:call, from}, {:apply_magic, issue_id}, :magic_estimation, data) do
+    cond do
+      not Map.get(data, :magic_enabled, false) ->
+        {:keep_state, data, [{:reply, from, {:error, :magic_disabled}}]}
+
+      MapSet.member?(Map.get(data, :magic_applied, MapSet.new()), issue_id) ->
+        {:keep_state, data, [{:reply, from, {:error, :already_placed}}]}
+
+      Enum.any?(data.estimated_issues, fn i -> i["id"] == issue_id end) ->
+        {:keep_state, data, [{:reply, from, {:error, :already_placed}}]}
+
+      true ->
+        consensus = compute_magic_consensus(data)
+
+        case Map.get(consensus, issue_id) do
+          %{status: :ready, target_marker: target} ->
+            updated_data = apply_magic_placement(data, issue_id, target)
+            broadcast_state_change(:magic_estimation, updated_data)
+            {:keep_state, updated_data, [{:reply, from, :ok}]}
+
+          _ ->
+            {:keep_state, data, [{:reply, from, {:error, :not_ready}}]}
+        end
+    end
+  end
+
+  def handle_event({:call, from}, :apply_all_magic, :magic_estimation, data) do
+    if not Map.get(data, :magic_enabled, false) do
+      {:keep_state, data, [{:reply, from, {:error, :magic_disabled}}]}
+    else
+      applied_set = Map.get(data, :magic_applied, MapSet.new())
+
+      ready_placements =
+        data
+        |> compute_magic_consensus()
+        |> Enum.flat_map(fn
+          {issue_id, %{status: :ready, target_marker: target}} ->
+            cond do
+              MapSet.member?(applied_set, issue_id) -> []
+              Enum.any?(data.estimated_issues, fn i -> i["id"] == issue_id end) -> []
+              true -> [{issue_id, target}]
+            end
+
+          _ ->
+            []
+        end)
+
+      {updated_data, count} =
+        Enum.reduce(ready_placements, {data, 0}, fn {issue_id, target}, {acc, n} ->
+          {apply_magic_placement(acc, issue_id, target), n + 1}
+        end)
+
+      if count > 0 do
+        broadcast_state_change(:magic_estimation, updated_data)
+      end
+
+      {:keep_state, updated_data, [{:reply, from, {:ok, count}}]}
+    end
   end
 
   def handle_event({:call, from}, :end_turn, :magic_estimation, data) do
@@ -1521,6 +1595,213 @@ defmodule PlanningPoker.PlanningSession do
       :exit, _ -> {:error, :session_unavailable}
     end
   end
+
+  # Apply a magic placement of `issue_id` at `target_marker`.
+  #
+  # 1. Ensure the marker card for `target_marker` lives in :estimated_issues.
+  #    If it's still in :unestimated_issues it gets moved over.
+  # 2. Re-order all markers in :estimated_issues ascending (idempotent — safe
+  #    to run every time even if they're already ordered).
+  # 3. Remove the issue from :unestimated_issues and insert it immediately
+  #    after the target marker card in :estimated_issues. Issues bound to a
+  #    marker live between it and the next-higher marker (this matches how
+  #    `calculate_weights_from_positions/1` reads the column).
+  # 4. Add the issue id to data.magic_applied.
+  defp apply_magic_placement(data, issue_id, target_marker) do
+    target_marker_id = "marker/#{format_marker_value(target_marker)}"
+    options = Map.get(data, :options, [])
+
+    # Step 1: ensure the marker is in estimated_issues.
+    {unestimated_after_marker, estimated_with_marker} =
+      ensure_marker_in_estimated(
+        data.unestimated_issues,
+        data.estimated_issues,
+        target_marker_id,
+        target_marker
+      )
+
+    # Step 2: ensure ascending marker order in estimated.
+    estimated_ordered = ensure_markers_ordered(estimated_with_marker, options)
+
+    # Step 3: pull the issue out of unestimated and insert after target marker.
+    issue = Enum.find(unestimated_after_marker, fn i -> i["id"] == issue_id end)
+
+    if is_nil(issue) do
+      data
+    else
+      unestimated_final =
+        Enum.reject(unestimated_after_marker, fn i -> i["id"] == issue_id end)
+
+      target_index =
+        Enum.find_index(estimated_ordered, fn i -> i["id"] == target_marker_id end)
+
+      estimated_final =
+        case target_index do
+          nil ->
+            estimated_ordered ++ [issue]
+
+          idx ->
+            {before_items, after_items} = Enum.split(estimated_ordered, idx + 1)
+            before_items ++ [issue] ++ after_items
+        end
+
+      magic_applied =
+        data
+        |> Map.get(:magic_applied, MapSet.new())
+        |> MapSet.put(issue_id)
+
+      data
+      |> Map.put(:unestimated_issues, unestimated_final)
+      |> Map.put(:estimated_issues, estimated_final)
+      |> Map.put(:magic_applied, magic_applied)
+    end
+  end
+
+  # Markers may be ints (e.g. 5) or floats (e.g. 0.5). The id convention used
+  # by `:start_magic_estimation` is `"marker/<integer>"` because the default
+  # options list is integers. We mirror that exactly here, but tolerate floats
+  # whose value is integer (e.g. 5.0 -> "5") so consensus values returned as
+  # floats by NoteParser still produce a valid id.
+  defp format_marker_value(value) when is_integer(value), do: Integer.to_string(value)
+
+  defp format_marker_value(value) when is_float(value) do
+    if value == Float.round(value) and value >= 0 do
+      value |> trunc() |> Integer.to_string()
+    else
+      # e.g. 0.5
+      Float.to_string(value)
+    end
+  end
+
+  # Returns `{updated_unestimated, updated_estimated}` where the marker for
+  # `target_marker_id` lives in estimated. If it was already there, both lists
+  # are returned unchanged.
+  defp ensure_marker_in_estimated(unestimated, estimated, target_marker_id, target_marker) do
+    cond do
+      Enum.any?(estimated, fn i -> i["id"] == target_marker_id end) ->
+        {unestimated, estimated}
+
+      marker = Enum.find(unestimated, fn i -> i["id"] == target_marker_id end) ->
+        new_unestimated = Enum.reject(unestimated, fn i -> i["id"] == target_marker_id end)
+        # Append; ensure_markers_ordered/2 will sort it into place.
+        {new_unestimated, estimated ++ [marker]}
+
+      true ->
+        # Marker isn't anywhere — synthesize one. (Shouldn't happen in practice
+        # since :start_magic_estimation seeds the unestimated column with all
+        # markers, but defend against it.)
+        synth = %{
+          "id" => target_marker_id,
+          "type" => "marker",
+          "value" => format_marker_value(target_marker),
+          "title" => "#{format_marker_value(target_marker)} Story Points"
+        }
+
+        {unestimated, estimated ++ [synth]}
+    end
+  end
+
+  @doc """
+  Returns `estimated_issues` with all marker cards reordered ascending by their
+  numeric value. Non-marker issues are kept attached to the marker they
+  currently follow (i.e. the chunk between marker A and the next marker stays
+  glued to marker A even after A moves).
+
+  The `options` argument is the session's card options list (e.g.
+  `["1", "2", "3", "5", "8", "13", "21", "?"]`); the `"?"` option is ignored.
+  It's currently used only as a hint that callers passed something sensible —
+  marker numeric values come from the marker ids themselves so unknown
+  markers still sort correctly.
+
+  Idempotent: returns the input unchanged when markers are already ordered.
+
+  ## Examples
+
+      iex> PlanningPoker.PlanningSession.ensure_markers_ordered([], ["1", "2"])
+      []
+
+      iex> markers_ordered = [
+      ...>   %{"id" => "marker/1", "type" => "marker", "value" => "1"},
+      ...>   %{"id" => "issue-a"},
+      ...>   %{"id" => "marker/2", "type" => "marker", "value" => "2"},
+      ...>   %{"id" => "issue-b"}
+      ...> ]
+      iex> PlanningPoker.PlanningSession.ensure_markers_ordered(markers_ordered, ["1", "2"]) == markers_ordered
+      true
+
+      iex> mixed = [
+      ...>   %{"id" => "marker/5", "type" => "marker", "value" => "5"},
+      ...>   %{"id" => "issue-a"},
+      ...>   %{"id" => "marker/2", "type" => "marker", "value" => "2"},
+      ...>   %{"id" => "issue-b"}
+      ...> ]
+      iex> result = PlanningPoker.PlanningSession.ensure_markers_ordered(mixed, ["2", "5"])
+      iex> Enum.map(result, & &1["id"])
+      ["marker/2", "issue-b", "marker/5", "issue-a"]
+  """
+  @spec ensure_markers_ordered(list(map()), list(String.t() | number())) :: list(map())
+  def ensure_markers_ordered(estimated_issues, _options) do
+    # Chunk into [{marker_or_nil, [trailing_non_marker_items]}, ...]. The first
+    # chunk has marker_or_nil == nil if there are non-marker items before any
+    # marker.
+    {leading_items, chunks} =
+      Enum.reduce(estimated_issues, {[], []}, fn item, {leading, acc} ->
+        if marker_issue?(item) do
+          {leading, [{item, []} | acc]}
+        else
+          case acc do
+            [] -> {[item | leading], acc}
+            [{marker, trailing} | rest] -> {leading, [{marker, [item | trailing]} | rest]}
+          end
+        end
+      end)
+
+    chunks =
+      chunks
+      |> Enum.reverse()
+      |> Enum.map(fn {marker, trailing} -> {marker, Enum.reverse(trailing)} end)
+
+    leading_items = Enum.reverse(leading_items)
+
+    sorted_chunks = Enum.sort_by(chunks, fn {marker, _} -> marker_numeric_value(marker) end)
+
+    if sorted_chunks == chunks do
+      estimated_issues
+    else
+      tail =
+        Enum.flat_map(sorted_chunks, fn {marker, trailing} -> [marker | trailing] end)
+
+      leading_items ++ tail
+    end
+  end
+
+  defp marker_numeric_value(%{"value" => value}) when is_binary(value) do
+    case Integer.parse(value) do
+      {n, ""} ->
+        n
+
+      _ ->
+        case Float.parse(value) do
+          {f, ""} -> f
+          _ -> :infinity
+        end
+    end
+  end
+
+  defp marker_numeric_value(%{"id" => "marker/" <> rest}) do
+    case Integer.parse(rest) do
+      {n, ""} ->
+        n
+
+      _ ->
+        case Float.parse(rest) do
+          {f, ""} -> f
+          _ -> :infinity
+        end
+    end
+  end
+
+  defp marker_numeric_value(_), do: :infinity
 
   # Schedule token refresh 5 minutes before expiry.
   # Returns the timer ref or nil if no refresh is needed.
