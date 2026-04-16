@@ -35,7 +35,8 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
      |> assign_title()
      |> assign(:participants, Planning.get_participants!(id))
      |> assign(:current_participant, participant)
-     |> assign(:personal_notes, %{})}
+     |> assign(:personal_notes, %{})
+     |> assign(:magic_hints, %{})}
   end
 
   def mount(_params, _session, socket) do
@@ -90,6 +91,19 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
 
   def handle_event("sync_notes", %{"notes" => notes}, socket) do
     {:noreply, assign(socket, :personal_notes, notes)}
+  end
+
+  # Stub for client-emitted magic-estimation hints. The real aggregation
+  # (subtask 67e7d711) will route these into the PlanningSession state
+  # machine; for now we just stash them on the socket so the front-end
+  # contract is stable and the page doesn't crash when the hook pushes.
+  def handle_event("sync_magic_hints", %{"hints" => hints}, socket)
+      when is_map(hints) do
+    {:noreply, assign(socket, :magic_hints, hints)}
+  end
+
+  def handle_event("sync_magic_hints", _params, socket) do
+    {:noreply, socket}
   end
 
   def handle_event("change_mode", _value, socket) do
