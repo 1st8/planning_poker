@@ -2,6 +2,7 @@ defmodule PlanningPoker.PlanningSession do
   @behaviour :gen_statem
 
   alias PlanningPoker.{IssueProvider, Planning, IssueSection, TokenCredentials, TokenRefresh}
+  alias PlanningPoker.MagicEstimation.NoteParser
 
   # lobby
   # voting
@@ -201,6 +202,10 @@ defmodule PlanningPoker.PlanningSession do
       |> Map.put(:current_turn_index, 0)
       |> Map.put(:current_turn_moves, [])
       |> Map.put(:previous_turn_moves, [])
+      # Magic-hint aggregation state — reset on every entry into magic_estimation.
+      |> Map.put(:magic_hints, %{})
+      |> Map.put(:magic_enabled, false)
+      |> Map.put(:magic_applied, MapSet.new())
 
     broadcast_state_change(:magic_estimation, data)
     {:next_state, :magic_estimation, data, [{:reply, from, :ok}]}
@@ -361,6 +366,42 @@ defmodule PlanningPoker.PlanningSession do
       data
       |> Map.put(:turn_order, updated_turn_order)
       |> Map.put(:current_turn_index, new_index)
+
+    broadcast_state_change(:magic_estimation, updated_data)
+    {:keep_state, updated_data, [{:reply, from, :ok}]}
+  end
+
+  def handle_event(
+        {:call, from},
+        {:update_magic_hints, participant_id, hints},
+        :magic_estimation,
+        data
+      )
+      when is_binary(participant_id) and is_map(hints) do
+    # Hook sends full state — replace the inner map for this participant.
+    # client_parse is ignored; we always re-parse raw_head server-side.
+    parsed =
+      hints
+      |> Enum.reduce(%{}, fn {issue_id, entry}, acc ->
+        raw_head =
+          case entry do
+            %{"raw_head" => rh} when is_binary(rh) -> rh
+            %{raw_head: rh} when is_binary(rh) -> rh
+            _ -> ""
+          end
+
+        value =
+          case NoteParser.parse(raw_head) do
+            {:ok, num} -> %{value: num}
+            :abstain -> :abstain
+            :unparseable -> :unparseable
+          end
+
+        Map.put(acc, issue_id, value)
+      end)
+
+    updated_hints = Map.put(data.magic_hints, participant_id, parsed)
+    updated_data = Map.put(data, :magic_hints, updated_hints)
 
     broadcast_state_change(:magic_estimation, updated_data)
     {:keep_state, updated_data, [{:reply, from, :ok}]}
@@ -1101,7 +1142,8 @@ defmodule PlanningPoker.PlanningSession do
       :update_issue_ref,
       :weight_update_tasks,
       :weight_update_failures,
-      :current_turn_moves
+      :current_turn_moves,
+      :magic_hints
     ])
     |> Map.merge(%{
       state: state,
@@ -1109,6 +1151,7 @@ defmodule PlanningPoker.PlanningSession do
       issue_modified: issue_modified,
       updating_weights: Map.has_key?(data, :weight_update_tasks),
       token_info: token_info(data),
+      magic: magic_payload(data),
       current_issue:
         case data[:current_issue] do
           nil ->
@@ -1121,6 +1164,130 @@ defmodule PlanningPoker.PlanningSession do
             })
         end
     })
+  end
+
+  # Builds the `:magic` payload map — advisory consensus data for the UI.
+  # Returns a stable shape regardless of whether magic-estimation has ever
+  # been entered, so clients don't have to special-case `nil`.
+  defp magic_payload(data) do
+    applied = Map.get(data, :magic_applied, MapSet.new())
+    consensus = compute_magic_consensus(data)
+    total_unestimated = data |> non_marker_unestimated_issues() |> length()
+
+    n_ready =
+      Enum.count(consensus, fn {_id, entry} -> Map.get(entry, :status) == :ready end)
+
+    %{
+      enabled: Map.get(data, :magic_enabled, false),
+      consensus: consensus,
+      applied: MapSet.to_list(applied),
+      progress: %{
+        ready: n_ready,
+        applied: MapSet.size(applied),
+        total_unestimated: total_unestimated
+      }
+    }
+  end
+
+  # Walks `turn_order` for every non-marker issue still in the unestimated
+  # column and builds a `%{issue_id => consensus_entry}` map.
+  #
+  # Each entry is either:
+  #   * `%{status: :ready, value: float, target_marker: number, agreeing, total}`
+  #     when every participant submitted a parseable `{:ok, value}` hint
+  #   * `%{status: :pending, agreeing: count_of_ok, total: n_participants}`
+  #     when anyone is missing, abstained, or unparseable
+  defp compute_magic_consensus(data) do
+    turn_order = Map.get(data, :turn_order, [])
+    total = length(turn_order)
+    hints = Map.get(data, :magic_hints, %{})
+    markers = options_as_markers(Map.get(data, :options, []))
+
+    data
+    |> non_marker_unestimated_issues()
+    |> Enum.reduce(%{}, fn issue, acc ->
+      issue_id = issue["id"]
+      {ok_values, all_ok?} = collect_hint_values(turn_order, hints, issue_id)
+      agreeing = length(ok_values)
+
+      entry =
+        cond do
+          total == 0 ->
+            %{status: :pending, agreeing: 0, total: 0}
+
+          all_ok? and agreeing == total ->
+            mean = Enum.sum(ok_values) / agreeing
+            target = NoteParser.nearest_marker(mean, markers: markers)
+
+            %{
+              status: :ready,
+              value: mean,
+              target_marker: target,
+              agreeing: agreeing,
+              total: total
+            }
+
+          true ->
+            %{status: :pending, agreeing: agreeing, total: total}
+        end
+
+      Map.put(acc, issue_id, entry)
+    end)
+  end
+
+  # Returns `{list_of_ok_values, all_ok?}`. `all_ok?` flips to false as soon as
+  # any participant is missing, abstained, or unparseable for this issue.
+  defp collect_hint_values(turn_order, hints, issue_id) do
+    Enum.reduce(turn_order, {[], true}, fn participant_id, {vals, all_ok?} ->
+      case hints |> Map.get(participant_id, %{}) |> Map.get(issue_id) do
+        %{value: v} when is_number(v) -> {[v | vals], all_ok?}
+        _ -> {vals, false}
+      end
+    end)
+  end
+
+  defp non_marker_unestimated_issues(data) do
+    data
+    |> Map.get(:unestimated_issues, [])
+    |> Enum.reject(&marker_issue?/1)
+  end
+
+  # Markers are synthetic items with either `"type" => "marker"` or an id that
+  # matches the `marker/<n>` convention used by `:start_magic_estimation`.
+  defp marker_issue?(%{"type" => "marker"}), do: true
+
+  defp marker_issue?(%{"id" => id}) when is_binary(id) do
+    String.starts_with?(id, "marker/")
+  end
+
+  defp marker_issue?(_), do: false
+
+  # Converts `data.options` (strings, may include `"?"`) into a numeric marker
+  # list suitable for `NoteParser.nearest_marker/2`.
+  defp options_as_markers(options) do
+    options
+    |> Enum.reject(&(&1 == "?"))
+    |> Enum.flat_map(fn opt ->
+      cond do
+        is_number(opt) ->
+          [opt]
+
+        is_binary(opt) ->
+          case Integer.parse(opt) do
+            {n, ""} ->
+              [n]
+
+            _ ->
+              case Float.parse(opt) do
+                {f, ""} -> [f]
+                _ -> []
+              end
+          end
+
+        true ->
+          []
+      end
+    end)
   end
 
   # Compute a UI-safe snapshot of the current auth token's status.

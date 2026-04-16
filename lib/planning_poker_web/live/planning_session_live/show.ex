@@ -93,12 +93,18 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     {:noreply, assign(socket, :personal_notes, notes)}
   end
 
-  # Stub for client-emitted magic-estimation hints. The real aggregation
-  # (subtask 67e7d711) will route these into the PlanningSession state
-  # machine; for now we just stash them on the socket so the front-end
-  # contract is stable and the page doesn't crash when the hook pushes.
+  # Client-emitted magic-estimation hints. Routes into the PlanningSession
+  # state machine for authoritative parsing + consensus aggregation. The
+  # gen_statem ignores the hook's advisory `client_parse` and re-parses
+  # `raw_head` server-side via `NoteParser`.
   def handle_event("sync_magic_hints", %{"hints" => hints}, socket)
       when is_map(hints) do
+    Planning.update_magic_hints(
+      socket.assigns.planning_session.id,
+      socket.assigns.current_participant.id,
+      hints
+    )
+
     {:noreply, assign(socket, :magic_hints, hints)}
   end
 

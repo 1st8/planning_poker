@@ -549,6 +549,248 @@ defmodule PlanningPoker.PlanningSessionTest do
     end
   end
 
+  describe "magic hint aggregation" do
+    setup %{pid: pid} do
+      # Seed the session directly with a known magic_estimation state so we
+      # don't depend on :start_magic_estimation's Presence lookup.
+      issues = [
+        %{"id" => "issue-a", "title" => "A"},
+        %{"id" => "issue-b", "title" => "B"}
+      ]
+
+      markers = [
+        %{"id" => "marker/1", "type" => "marker", "value" => "1", "title" => "1 SP"},
+        %{"id" => "marker/5", "type" => "marker", "value" => "5", "title" => "5 SP"}
+      ]
+
+      turn_order = ["p1", "p2", "p3"]
+
+      :sys.replace_state(pid, fn {_state, data} ->
+        updated =
+          data
+          |> Map.put(:issues, issues)
+          |> Map.put(:unestimated_issues, issues ++ markers)
+          |> Map.put(:estimated_issues, [])
+          |> Map.put(:turn_order, turn_order)
+          |> Map.put(:current_turn_index, 0)
+          |> Map.put(:current_turn_moves, [])
+          |> Map.put(:previous_turn_moves, [])
+          |> Map.put(:magic_hints, %{})
+          |> Map.put(:magic_enabled, false)
+          |> Map.put(:magic_applied, MapSet.new())
+
+        {:magic_estimation, updated}
+      end)
+
+      {:ok, issues: issues, markers: markers, turn_order: turn_order}
+    end
+
+    test "payload includes :magic key with pending consensus when no hints", %{pid: pid} do
+      state = :gen_statem.call(pid, :get_state)
+
+      assert %{magic: magic} = state
+      assert magic.enabled == false
+      assert magic.applied == []
+      assert magic.progress.total_unestimated == 2
+      assert magic.progress.ready == 0
+      assert magic.progress.applied == 0
+
+      assert %{status: :pending, agreeing: 0, total: 3} = Map.fetch!(magic.consensus, "issue-a")
+      assert %{status: :pending, agreeing: 0, total: 3} = Map.fetch!(magic.consensus, "issue-b")
+
+      # Markers must not appear in consensus.
+      refute Map.has_key?(magic.consensus, "marker/1")
+      refute Map.has_key?(magic.consensus, "marker/5")
+    end
+
+    test "payload does not leak raw magic_hints", %{pid: pid} do
+      :ok =
+        :gen_statem.call(
+          pid,
+          {:update_magic_hints, "p1", %{"issue-a" => %{"raw_head" => "5"}}}
+        )
+
+      state = :gen_statem.call(pid, :get_state)
+
+      refute Map.has_key?(state, :magic_hints)
+    end
+
+    test "three participants agreeing on 5 yields :ready with value=5.0, target_marker=5",
+         %{pid: pid} do
+      :ok =
+        :gen_statem.call(
+          pid,
+          {:update_magic_hints, "p1", %{"issue-a" => %{"raw_head" => "5"}}}
+        )
+
+      :ok =
+        :gen_statem.call(
+          pid,
+          {:update_magic_hints, "p2", %{"issue-a" => %{"raw_head" => "5"}}}
+        )
+
+      :ok =
+        :gen_statem.call(
+          pid,
+          {:update_magic_hints, "p3", %{"issue-a" => %{"raw_head" => "5"}}}
+        )
+
+      state = :gen_statem.call(pid, :get_state)
+      entry = Map.fetch!(state.magic.consensus, "issue-a")
+
+      assert %{
+               status: :ready,
+               value: 5.0,
+               target_marker: 5,
+               agreeing: 3,
+               total: 3
+             } = entry
+
+      # issue-b has no hints — still pending.
+      assert %{status: :pending, agreeing: 0, total: 3} =
+               Map.fetch!(state.magic.consensus, "issue-b")
+
+      assert state.magic.progress.ready == 1
+      assert state.magic.progress.total_unestimated == 2
+    end
+
+    test "partial agreement keeps issue :pending with agreeing count", %{pid: pid} do
+      :ok =
+        :gen_statem.call(
+          pid,
+          {:update_magic_hints, "p1", %{"issue-a" => %{"raw_head" => "5"}}}
+        )
+
+      :ok =
+        :gen_statem.call(
+          pid,
+          {:update_magic_hints, "p2", %{"issue-a" => %{"raw_head" => "?"}}}
+        )
+
+      # p3 sends nothing at all.
+
+      state = :gen_statem.call(pid, :get_state)
+      entry = Map.fetch!(state.magic.consensus, "issue-a")
+
+      assert %{status: :pending, agreeing: 1, total: 3} = entry
+      assert state.magic.progress.ready == 0
+    end
+
+    test "unparseable hints are treated as missing and keep :pending", %{pid: pid} do
+      :ok =
+        :gen_statem.call(
+          pid,
+          {:update_magic_hints, "p1", %{"issue-a" => %{"raw_head" => "5"}}}
+        )
+
+      :ok =
+        :gen_statem.call(
+          pid,
+          {:update_magic_hints, "p2", %{"issue-a" => %{"raw_head" => "5"}}}
+        )
+
+      :ok =
+        :gen_statem.call(
+          pid,
+          {:update_magic_hints, "p3", %{"issue-a" => %{"raw_head" => "foo"}}}
+        )
+
+      state = :gen_statem.call(pid, :get_state)
+      entry = Map.fetch!(state.magic.consensus, "issue-a")
+
+      assert %{status: :pending, agreeing: 2, total: 3} = entry
+    end
+
+    test "re-sending the same hints map is idempotent", %{pid: pid} do
+      hints = %{"issue-a" => %{"raw_head" => "3"}}
+
+      :ok = :gen_statem.call(pid, {:update_magic_hints, "p1", hints})
+      :ok = :gen_statem.call(pid, {:update_magic_hints, "p1", hints})
+      :ok = :gen_statem.call(pid, {:update_magic_hints, "p1", hints})
+
+      state = :gen_statem.call(pid, :get_state)
+
+      assert %{status: :pending, agreeing: 1, total: 3} =
+               Map.fetch!(state.magic.consensus, "issue-a")
+    end
+
+    test "client_parse is ignored — server re-parses raw_head authoritatively", %{pid: pid} do
+      # Client advisory says 999, but raw_head "5" is the authoritative input.
+      :ok =
+        :gen_statem.call(
+          pid,
+          {:update_magic_hints, "p1",
+           %{"issue-a" => %{"raw_head" => "5", "client_parse" => %{"ok" => 999}}}}
+        )
+
+      :ok =
+        :gen_statem.call(
+          pid,
+          {:update_magic_hints, "p2", %{"issue-a" => %{"raw_head" => "5"}}}
+        )
+
+      :ok =
+        :gen_statem.call(
+          pid,
+          {:update_magic_hints, "p3", %{"issue-a" => %{"raw_head" => "5"}}}
+        )
+
+      state = :gen_statem.call(pid, :get_state)
+      entry = Map.fetch!(state.magic.consensus, "issue-a")
+
+      assert entry.value == 5.0
+      assert entry.target_marker == 5
+    end
+
+    test "participant leaving via sync_turn_order flips issue from pending to ready",
+         %{pid: pid} do
+      # p1 and p2 vote 5, p3 never responds.
+      :ok =
+        :gen_statem.call(
+          pid,
+          {:update_magic_hints, "p1", %{"issue-a" => %{"raw_head" => "5"}}}
+        )
+
+      :ok =
+        :gen_statem.call(
+          pid,
+          {:update_magic_hints, "p2", %{"issue-a" => %{"raw_head" => "5"}}}
+        )
+
+      state = :gen_statem.call(pid, :get_state)
+
+      assert %{status: :pending, agreeing: 2, total: 3} =
+               Map.fetch!(state.magic.consensus, "issue-a")
+
+      # p3 leaves — turn_order shrinks to [p1, p2].
+      :ok = :gen_statem.call(pid, {:sync_turn_order, ["p1", "p2"]})
+
+      state = :gen_statem.call(pid, :get_state)
+      entry = Map.fetch!(state.magic.consensus, "issue-a")
+
+      assert %{status: :ready, value: 5.0, target_marker: 5, agreeing: 2, total: 2} = entry
+    end
+
+    test "update_magic_hints outside :magic_estimation returns invalid transition" do
+      session_id = "test-session-#{:erlang.unique_integer()}"
+
+      Phoenix.PubSub.subscribe(PlanningPoker.PubSub, "planning_sessions:#{session_id}")
+
+      {:ok, pid} =
+        PlanningSession.start_link(
+          name: {:via, Registry, {PlanningPoker.PlanningSession.Registry, session_id}},
+          args: %{id: session_id, token: "fake-token"}
+        )
+
+      on_exit(fn -> if Process.alive?(pid), do: Process.exit(pid, :kill) end)
+
+      # Session is in :lobby — the magic-hint event has no clause there and
+      # must fall through to the catch-all.
+      assert :gen_statem.call(pid, {:update_magic_hints, "p1", %{}}) ==
+               {:error, "invalid transition"}
+    end
+  end
+
   # Receives all pending state_change messages and returns the last one.
   # Waits up to 100ms for the first message if none is available yet.
   defp receive_latest_state_change(latest \\ nil) do

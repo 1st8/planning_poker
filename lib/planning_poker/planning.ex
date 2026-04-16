@@ -208,6 +208,12 @@ defmodule PlanningPoker.Planning do
     session_id |> to_pid |> :gen_statem.call({:sync_turn_order, participant_ids})
   end
 
+  def update_magic_hints(session_id, participant_id, hints) do
+    session_id
+    |> to_pid
+    |> :gen_statem.call({:update_magic_hints, participant_id, hints})
+  end
+
   def lock_section(session_id, section_id, user_id) do
     session_id |> to_pid |> :gen_statem.call({:lock_section, section_id, user_id})
   end
