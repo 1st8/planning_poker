@@ -89,6 +89,11 @@ npm run e2e:headed
 
 Tests automatically start the Phoenix server on port 4004 in e2e mode.
 
+### Sandbox / Git Workflow
+
+- **Do NOT run `git push` from the sandbox** — outbound SSH to github.com is blocked. Just commit locally; `scripts/autopush.sh` handles remote sync.
+- Same applies to `git push --tags` after `scripts/bump.sh` — the tag lives locally and autopush picks it up.
+
 ---
 
 <!-- usage-rules-start -->
