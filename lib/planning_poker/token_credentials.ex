@@ -22,7 +22,7 @@ defmodule PlanningPoker.TokenCredentials do
   def expired?(%__MODULE__{expires_at: nil}), do: false
 
   def expired?(%__MODULE__{expires_at: expires_at}) do
-    System.system_time(:second) >= expires_at
+    PlanningPoker.Clock.system_time(:second) >= expires_at
   end
 
   @doc """
@@ -32,7 +32,17 @@ defmodule PlanningPoker.TokenCredentials do
   def expires_soon?(%__MODULE__{expires_at: nil}, _buffer_seconds), do: false
 
   def expires_soon?(%__MODULE__{expires_at: expires_at}, buffer_seconds) do
-    System.system_time(:second) >= expires_at - buffer_seconds
+    PlanningPoker.Clock.system_time(:second) >= expires_at - buffer_seconds
+  end
+
+  @doc """
+  Returns the remaining time in seconds until the token expires.
+  Returns `nil` for non-expiring tokens (e.g. mock). May be negative if already expired.
+  """
+  def seconds_until_expiry(%__MODULE__{expires_at: nil}), do: nil
+
+  def seconds_until_expiry(%__MODULE__{expires_at: expires_at}) do
+    expires_at - PlanningPoker.Clock.system_time(:second)
   end
 
   @doc """

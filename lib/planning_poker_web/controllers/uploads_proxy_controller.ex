@@ -28,11 +28,17 @@ defmodule PlanningPokerWeb.UploadsProxyController do
         |> json(%{error: "Authentication required"})
 
       token ->
+        access_token =
+          case token do
+            %PlanningPoker.TokenCredentials{access_token: t} -> t
+            t when is_binary(t) -> t
+          end
+
         # Construct GitLab API URL for project uploads
         gitlab_site = System.get_env("GITLAB_SITE", "https://gitlab.com")
         url = "#{gitlab_site}/api/v4/projects/#{project_id}/uploads/#{Enum.join(path, "/")}"
 
-        fetch_and_stream(conn, url, token)
+        fetch_and_stream(conn, url, access_token)
     end
   end
 

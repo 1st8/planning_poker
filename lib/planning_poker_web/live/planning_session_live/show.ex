@@ -1,19 +1,29 @@
 defmodule PlanningPokerWeb.PlanningSessionLive.Show do
   use PlanningPokerWeb, :live_view
 
-  alias PlanningPoker.Planning
+  alias PlanningPoker.{Planning, TokenCredentials}
 
   require Logger
 
   @impl true
   def mount(params, %{"current_user" => participant, "token" => token}, socket) do
     id = Map.get(params, "id", "default")
-    Planning.ensure_started(id, token)
+
+    # Normalize session-stored token (may be plain string from legacy session)
+    credentials =
+      case token do
+        %TokenCredentials{} = c -> c
+        str when is_binary(str) -> TokenCredentials.from_string(str)
+      end
+
+    Planning.ensure_started(id, credentials)
 
     socket =
       if connected?(socket) do
         monitor_ref = Planning.subscribe_and_monitor(id)
         Planning.join_participant(id, participant)
+        # Periodically refresh the session-time indicator in the header.
+        :timer.send_interval(30_000, self(), :refresh_token_info)
         socket |> assign(:monitor_ref, monitor_ref)
       else
         socket
@@ -144,6 +154,27 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     end
   end
 
+  def handle_event("refresh_token_now", _value, socket) do
+    case Planning.refresh_token_now(socket.assigns.planning_session.id) do
+      :ok ->
+        {:noreply, put_flash(socket, :info, "Sitzung wird verlängert …")}
+
+      :in_progress ->
+        {:noreply, put_flash(socket, :info, "Verlängerung läuft bereits …")}
+
+      {:error, :not_refreshable} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Sitzung kann nicht verlängert werden (kein Refresh-Token). Bitte erneut einloggen."
+         )}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Verlängerung fehlgeschlagen: #{inspect(reason)}")}
+    end
+  end
+
   @impl true
   def handle_info({:state_change, new_planning_session}, socket) do
     socket =
@@ -159,6 +190,37 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
      socket
      |> put_flash(:error, "Deine GitLab-Sitzung ist abgelaufen. Bitte melde dich erneut an.")
      |> redirect(to: "/auth/logout")}
+  end
+
+  def handle_info({:token_refreshed, token_info}, socket) do
+    ps = Map.put(socket.assigns.planning_session, :token_info, token_info)
+
+    {:noreply,
+     socket
+     |> assign(:planning_session, ps)
+     |> put_flash(:info, "Sitzung verlängert.")}
+  end
+
+  def handle_info(:refresh_token_info, socket) do
+    # Pull the latest token_info from the gen_statem without triggering a full re-broadcast
+    session_id = socket.assigns.planning_session.id
+
+    try do
+      token_info = Planning.get_token_info(session_id)
+      ps = Map.put(socket.assigns.planning_session, :token_info, token_info)
+      {:noreply, assign(socket, :planning_session, ps)}
+    catch
+      :exit, _ -> {:noreply, socket}
+    end
+  end
+
+  def handle_info({:token_refresh_failed, :transient}, socket) do
+    {:noreply,
+     put_flash(
+       socket,
+       :error,
+       "Verlängerung der Sitzung fehlgeschlagen, erneuter Versuch in 30 s."
+     )}
   end
 
   def handle_info({:weight_update_errors, failures}, socket) do

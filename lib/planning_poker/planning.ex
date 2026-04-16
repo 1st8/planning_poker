@@ -162,6 +162,14 @@ defmodule PlanningPoker.Planning do
     id |> to_pid |> :gen_statem.call(:refresh_issues)
   end
 
+  def refresh_token_now(id) do
+    id |> to_pid |> :gen_statem.call(:refresh_token_now)
+  end
+
+  def get_token_info(id) do
+    id |> to_pid |> :gen_statem.call(:get_token_info)
+  end
+
   def kill_planning_session(id) do
     id |> to_pid |> Process.exit(:kill)
   end

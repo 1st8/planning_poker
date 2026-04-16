@@ -7,7 +7,7 @@ defmodule PlanningPokerWeb.AuthController do
 
   plug Ueberauth when action in [:request, :callback]
 
-  alias PlanningPoker.{UserFromAuth, IssueProvider}
+  alias PlanningPoker.{UserFromAuth, IssueProvider, TokenCredentials}
 
   @doc """
   Initiates the OAuth request with the provider.
@@ -34,7 +34,7 @@ defmodule PlanningPokerWeb.AuthController do
         user ->
           conn
           |> put_session(:current_user, user)
-          |> put_session(:token, "mock-token-#{username}")
+          |> put_session(:token, %TokenCredentials{access_token: "mock-token-#{username}"})
           |> configure_session(renew: true)
           |> put_flash(:info, "Logged in as #{user.name} (mock)")
           |> redirect(to: "/")
@@ -62,9 +62,15 @@ defmodule PlanningPokerWeb.AuthController do
   def callback(%{assigns: %{ueberauth_auth: auth}} = conn, _params) do
     case UserFromAuth.find_or_create(auth) do
       {:ok, user} ->
+        credentials = %TokenCredentials{
+          access_token: auth.credentials.token,
+          refresh_token: auth.credentials.refresh_token,
+          expires_at: auth.credentials.expires_at
+        }
+
         conn
         |> put_session(:current_user, user)
-        |> put_session(:token, auth.credentials.token)
+        |> put_session(:token, credentials)
         |> configure_session(renew: true)
         |> redirect(to: "/")
 
