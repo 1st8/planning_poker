@@ -1,11 +1,26 @@
 defmodule PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent do
   use PlanningPokerWeb, :live_component
 
+  @default_magic %{
+    enabled: false,
+    consensus: %{},
+    applied: [],
+    progress: %{ready: 0, applied: 0, total_unestimated: 0}
+  }
+
   # Define a function component for rendering an item (issue or marker)
   defp render_item(assigns) do
     # Check if this issue was moved in the previous turn
     moved_last_turn = assigns.item["id"] in (assigns[:previous_turn_moves] || [])
-    assigns = assign(assigns, :moved_last_turn, moved_last_turn)
+    magic = assigns[:magic] || %{enabled: false, consensus: %{}, applied: []}
+    consensus = magic.enabled && Map.get(magic.consensus || %{}, assigns.item["id"])
+    is_applied = assigns.item["id"] in (magic[:applied] || [])
+
+    assigns =
+      assigns
+      |> assign(:moved_last_turn, moved_last_turn)
+      |> assign(:consensus, consensus)
+      |> assign(:is_applied, is_applied)
 
     ~H"""
     <%= if @item["type"] == "marker" do %>
@@ -23,18 +38,42 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent do
           "issue-card bg-base-100 rounded-lg p-4 mb-2",
           @is_my_turn && "cursor-move",
           !@is_my_turn && "cursor-not-allowed opacity-80",
-          @moved_last_turn && "moved-last-turn"
+          @moved_last_turn && "moved-last-turn",
+          @is_applied && "magic-applied"
         ]}
         data-id={@item["id"]}
+        data-magic-applied={if @is_applied, do: "true"}
       >
-        <div class="font-medium">
-          <a
-            href={@item["webUrl"]}
-            target="_blank"
-            class="underline decoration-primary hover:decoration-primary/50 decoration-2"
-          >
-            {@item["title"]}
-          </a>
+        <div class="flex items-start justify-between gap-2">
+          <div class="font-medium grow">
+            <a
+              href={@item["webUrl"]}
+              target="_blank"
+              class="underline decoration-primary hover:decoration-primary/50 decoration-2"
+            >
+              {@item["title"]}
+            </a>
+          </div>
+          <%= if @consensus && @consensus.status == :ready do %>
+            <button
+              type="button"
+              class="badge badge-primary gap-1 cursor-pointer"
+              phx-click="apply_single_magic"
+              phx-value-issue-id={@item["id"]}
+              title="All participants agreed. Click to apply."
+              aria-label={"Apply magic: all participants agreed on #{@consensus.target_marker} story points"}
+            >
+              🪄 {@consensus.target_marker}
+            </button>
+          <% end %>
+          <%= if @consensus && @consensus.status == :pending do %>
+            <span
+              class="badge badge-ghost gap-1"
+              aria-label={"#{@consensus.agreeing} of #{@consensus.total} participants have provided a hint"}
+            >
+              {@consensus.agreeing}/{@consensus.total}
+            </span>
+          <% end %>
         </div>
         <small class="text-sm">{@item["referencePath"]}</small>
         <%= if note = get_note(@personal_notes, @item["id"]) do %>
@@ -79,10 +118,15 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent do
     is_my_turn = active_participant_id == assigns.current_user_id
     active_participant = get_participant_by_id(assigns.participants, active_participant_id)
 
+    magic = assigns[:magic] || @default_magic
+    pending_apply = magic.progress.ready - magic.progress.applied
+
     assigns =
       assigns
       |> assign(:is_my_turn, is_my_turn)
       |> assign(:active_participant, active_participant)
+      |> assign(:magic, magic)
+      |> assign(:pending_apply, pending_apply)
 
     ~H"""
     <main>
@@ -108,6 +152,33 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent do
           </div>
         <% end %>
 
+        <div class="flex items-center justify-between gap-4 mb-3">
+          <div
+            :if={@magic.enabled}
+            class="flex items-center gap-2"
+            aria-label="Magic estimation progress"
+          >
+            <span class="badge badge-primary gap-1">
+              🪄 {@magic.progress.applied}/{@magic.progress.total_unestimated} magically estimated
+            </span>
+            <span :if={@pending_apply > 0} class="badge badge-accent gap-1">
+              {@pending_apply} ready
+            </span>
+          </div>
+          <div class="ml-auto">
+            <button
+              type="button"
+              class={["btn btn-sm", (@magic.enabled && "btn-primary") || "btn-ghost"]}
+              phx-click="toggle_magic"
+              aria-pressed={to_string(@magic.enabled)}
+              aria-label={"Magic auto-sort: #{if @magic.enabled, do: "on", else: "off"}"}
+            >
+              <span>🪄</span>
+              <span>Magic: {if @magic.enabled, do: "on", else: "off"}</span>
+            </button>
+          </div>
+        </div>
+
         <div
           class="grid grid-cols-2 gap-8"
           phx-hook="SortableIssues"
@@ -123,6 +194,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent do
                   personal_notes={@personal_notes}
                   is_my_turn={@is_my_turn}
                   previous_turn_moves={@previous_turn_moves}
+                  magic={@magic}
                 />
               <% end %>
             </div>
@@ -136,12 +208,22 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent do
                   personal_notes={@personal_notes}
                   is_my_turn={@is_my_turn}
                   previous_turn_moves={@previous_turn_moves}
+                  magic={@magic}
                 />
               <% end %>
             </div>
           </div>
         </div>
         <:controls>
+          <button
+            :if={@magic.enabled && @pending_apply > 0}
+            type="button"
+            class="btn btn-primary btn-sm magic-apply-all-button"
+            phx-click="apply_all_magic"
+            aria-label={"Apply magic to #{@pending_apply} ready issues"}
+          >
+            🪄 Apply magic ({@pending_apply})
+          </button>
           <button
             class="btn btn-primary btn-sm"
             phx-hook="LongPressButton"

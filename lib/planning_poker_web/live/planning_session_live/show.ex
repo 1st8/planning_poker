@@ -149,6 +149,37 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     {:noreply, socket}
   end
 
+  def handle_event("apply_single_magic", %{"issue-id" => issue_id}, socket) do
+    case Planning.apply_magic(socket.assigns.planning_session.id, issue_id) do
+      :ok ->
+        {:noreply, socket}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Could not apply magic: #{reason}")}
+    end
+  end
+
+  def handle_event("apply_all_magic", _params, socket) do
+    case Planning.apply_all_magic(socket.assigns.planning_session.id) do
+      {:ok, _count} ->
+        {:noreply, socket}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Could not apply magic: #{reason}")}
+    end
+  end
+
+  def handle_event("toggle_magic", _params, socket) do
+    current =
+      case socket.assigns.planning_session do
+        %{magic: %{enabled: enabled}} -> enabled
+        _ -> false
+      end
+
+    :ok = Planning.toggle_magic(socket.assigns.planning_session.id, not current)
+    {:noreply, socket}
+  end
+
   def handle_event("end_turn", _value, socket) do
     :ok = Planning.end_turn(socket.assigns.planning_session.id)
     {:noreply, socket}

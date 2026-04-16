@@ -34,6 +34,7 @@
           previous_turn_moves={Map.get(data, :previous_turn_moves, [])}
           current_user_id={@current_participant.id}
           participants={@participants}
+          magic={Map.get(data, :magic)}
         />
       <% %{state: :results, current_issue: issue} -> %>
         <.live_component

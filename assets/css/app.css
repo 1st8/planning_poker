@@ -100,3 +100,27 @@ body {
 .section-content details > :not(summary) {
   margin-left: 1rem;
 }
+
+/* Magic estimation: hook class for cards that have been magically placed.
+   Subtask 6 will add the polished sparkle animation here. */
+.magic-applied {
+  /* placeholder hook for subtask 6 styling */
+}
+
+/* Subtle pulse on the "Apply magic" controls button to draw attention when
+   ready issues are waiting. Honors prefers-reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .magic-apply-all-button {
+    animation: magic-pulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes magic-pulse {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.03);
+    }
+  }
+}
