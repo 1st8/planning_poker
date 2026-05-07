@@ -156,22 +156,6 @@ function toFloat(str) {
 }
 
 /**
- * Compact hint for sync_magic_hints. `raw_head` is deliberately short (32
- * chars after stripping trailing commentary) so the full note text stays
- * local while the server has enough to reparse deterministically.
- *
- * @param {string} note
- * @returns {{raw_head: string, client_parse: {ok:number}|"abstain"|"unparseable"}}
- */
-export function hintFor(note) {
-  const safe = typeof note === "string" ? note : "";
-  return {
-    raw_head: rawHead(safe),
-    client_parse: parse(safe),
-  };
-}
-
-/**
  * Strip trailing commentary (split at first newline / `(` / `,`) and return
  * the first 32 chars. This is intentionally conservative: it captures enough
  * for the server-side parser to reach the same verdict without sending

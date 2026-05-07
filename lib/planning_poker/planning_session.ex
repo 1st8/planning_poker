@@ -51,7 +51,8 @@ defmodule PlanningPoker.PlanningSession do
        opened_issue_ids: MapSet.new(),
        most_recent_issue_id: nil,
        unestimated_issues: [],
-       estimated_issues: []
+       estimated_issues: [],
+       magic_hints: %{}
      }}
   end
 
@@ -202,7 +203,8 @@ defmodule PlanningPoker.PlanningSession do
       |> Map.put(:current_turn_index, 0)
       |> Map.put(:current_turn_moves, [])
       |> Map.put(:previous_turn_moves, [])
-      # Magic-hint aggregation state — reset on every entry into magic_estimation.
+      # Hints are collected on-demand via request_magic_hints once magic is
+      # activated, so each new round starts fresh.
       |> Map.put(:magic_hints, %{})
       |> Map.put(:magic_enabled, false)
       |> Map.put(:magic_applied, MapSet.new())
@@ -436,10 +438,13 @@ defmodule PlanningPoker.PlanningSession do
           rem(current_index, max(length(updated_turn_order), 1))
       end
 
+    pruned_hints = Map.take(Map.get(data, :magic_hints, %{}), participant_ids)
+
     updated_data =
       data
       |> Map.put(:turn_order, updated_turn_order)
       |> Map.put(:current_turn_index, new_index)
+      |> Map.put(:magic_hints, pruned_hints)
 
     broadcast_state_change(:magic_estimation, updated_data)
     {:keep_state, updated_data, [{:reply, from, :ok}]}
@@ -453,7 +458,6 @@ defmodule PlanningPoker.PlanningSession do
       )
       when is_binary(participant_id) and is_map(hints) do
     # Hook sends full state — replace the inner map for this participant.
-    # client_parse is ignored; we always re-parse raw_head server-side.
     parsed =
       hints
       |> Enum.reduce(%{}, fn {issue_id, entry}, acc ->

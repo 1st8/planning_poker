@@ -29,14 +29,16 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
         socket
       end
 
+    ps = Planning.get_planning_session!(id)
+
     {:ok,
      socket
-     |> assign(:planning_session, Planning.get_planning_session!(id))
+     |> assign(:planning_session, ps)
      |> assign_title()
      |> assign(:participants, Planning.get_participants!(id))
      |> assign(:current_participant, participant)
      |> assign(:personal_notes, %{})
-     |> assign(:magic_hints, %{})}
+     |> request_magic_hints_if_needed(ps)}
   end
 
   def mount(_params, _session, socket) do
@@ -93,10 +95,8 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     {:noreply, assign(socket, :personal_notes, notes)}
   end
 
-  # Client-emitted magic-estimation hints. Routes into the PlanningSession
-  # state machine for authoritative parsing + consensus aggregation. The
-  # gen_statem ignores the hook's advisory `client_parse` and re-parses
-  # `raw_head` server-side via `NoteParser`.
+  # Client response to a server-emitted `request_magic_hints` event. The
+  # gen_statem re-parses `raw_head` server-side via `NoteParser`.
   def handle_event("sync_magic_hints", %{"hints" => hints}, socket)
       when is_map(hints) do
     Planning.update_magic_hints(
@@ -105,7 +105,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
       hints
     )
 
-    {:noreply, assign(socket, :magic_hints, hints)}
+    {:noreply, socket}
   end
 
   def handle_event("sync_magic_hints", _params, socket) do
@@ -228,10 +228,14 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
 
   @impl true
   def handle_info({:state_change, new_planning_session}, socket) do
+    was_magic_on? = magic_on?(socket.assigns[:planning_session])
+    is_magic_on? = magic_on?(new_planning_session)
+
     socket =
       socket
       |> assign(:planning_session, new_planning_session)
       |> assign_title()
+      |> maybe_request_magic_hints(was_magic_on?, is_magic_on?, new_planning_session)
 
     {:noreply, socket}
   end
@@ -338,4 +342,34 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
       end
     )
   end
+
+  defp magic_on?(%{magic: %{enabled: enabled}}), do: enabled
+  defp magic_on?(_), do: false
+
+  defp push_request_magic_hints(socket, ps) do
+    push_event(socket, "request_magic_hints", %{issue_ids: magic_issue_ids(ps)})
+  end
+
+  defp maybe_request_magic_hints(socket, false, true, %{state: :magic_estimation} = ps),
+    do: push_request_magic_hints(socket, ps)
+
+  defp maybe_request_magic_hints(socket, _, _, _), do: socket
+
+  defp request_magic_hints_if_needed(socket, ps) do
+    if connected?(socket) and ps.state == :magic_estimation and magic_on?(ps) do
+      push_request_magic_hints(socket, ps)
+    else
+      socket
+    end
+  end
+
+  defp magic_issue_ids(%{unestimated_issues: u, estimated_issues: e}) do
+    (List.wrap(u) ++ List.wrap(e))
+    |> Enum.reject(fn item ->
+      item["type"] == "marker" or String.starts_with?(item["id"] || "", "marker/")
+    end)
+    |> Enum.map(& &1["id"])
+  end
+
+  defp magic_issue_ids(_), do: []
 end

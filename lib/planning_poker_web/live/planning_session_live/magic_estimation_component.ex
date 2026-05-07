@@ -180,6 +180,13 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MagicEstimationComponent do
         </div>
 
         <div
+          phx-hook="MagicHintsResync"
+          id="magic-hints-resync"
+          data-participant-id={@current_user_id}
+          hidden
+        />
+
+        <div
           class="grid grid-cols-2 gap-8"
           phx-hook="SortableIssues"
           id="magic-estimation-container"

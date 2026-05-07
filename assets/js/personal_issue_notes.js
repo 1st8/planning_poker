@@ -1,28 +1,10 @@
-/**
- * PersonalIssueNotes Hook
- *
- * Manages personal notes for issues in localStorage.
- * Notes are stored client-side and synced to server for display.
- *
- * In addition to the existing `sync_notes` event (which carries the full
- * notes map for rendering in the owning participant's own UI only), this
- * hook emits `sync_magic_hints` — a compact per-issue hint map:
- *
- *     { issueId: { raw_head: "first 32 chars after stripping commentary",
- *                  client_parse: {ok: 5} | "abstain" | "unparseable" } }
- *
- * The hint map intentionally leaves raw prose in the browser: only the
- * first 32 chars (trimmed, cut at the first newline / `(` / `,`) travel to
- * the server. The server reparses those heads authoritatively for the
- * magic-auto-sort aggregation (see subtask 67e7d711).
- *
- * Badge visibility: the "parses as …" badge is only shown when the
- * textarea carries `data-magic-mode="true"` (i.e. the session is in
- * magic-estimation voting). The PersonalIssueNotesComponent is already
- * only rendered in that state, so the gate is belt-and-suspenders.
- */
+// Manages personal notes for issues in localStorage and renders a small
+// "parses as …" badge while the textarea is in magic-estimation mode.
+// Magic-hint collection for consensus is decoupled from this hook — see
+// magic_hints_resync.js, which responds to a server request in
+// :magic_estimation rather than pushing on every keystroke.
 
-import { hintFor, parse, formatBadge } from "./magic_estimation/note_parser";
+import { parse, formatBadge } from "./magic_estimation/note_parser";
 
 export default {
   mounted() {
@@ -35,7 +17,6 @@ export default {
 
     this.badgeEl = this.ensureBadge();
 
-    // Load notes from localStorage (also re-emits hints for reconnect/reload).
     this.loadNotes();
 
     // Listen for input events
@@ -66,13 +47,8 @@ export default {
     if (storedNotes) {
       try {
         const notes = JSON.parse(storedNotes);
-        // Send all notes to server for rendering in other components
         this.pushEvent("sync_notes", { notes: notes });
-        // Re-emit the full hint map so reconnect/reload resyncs the
-        // server-side aggregation.
-        this.pushEvent("sync_magic_hints", { hints: this.buildHints(notes) });
 
-        // Update textarea with current issue's note
         const note = notes[this.issueId] || "";
         if (this.el.value !== note) {
           this.el.value = note;
@@ -82,9 +58,6 @@ export default {
         console.error("Failed to parse notes from localStorage:", e);
       }
     } else {
-      // No stored notes — still push an empty hint map on mount so the
-      // server's assigns reflect reality for this participant.
-      this.pushEvent("sync_magic_hints", { hints: {} });
       this.refreshBadge(this.el.value);
     }
   },
@@ -131,23 +104,6 @@ export default {
 
     // Send updated notes to server for rendering
     this.pushEvent("sync_notes", { notes: notes });
-    this.pushEvent("sync_magic_hints", { hints: this.buildHints(notes) });
-  },
-
-  /**
-   * Build the per-issue hint map from the raw notes map. Issues with
-   * empty-after-trim notes are omitted so the server sees "no hint" rather
-   * than an explicit abstain for issues the user hasn't touched.
-   */
-  buildHints(notes) {
-    const hints = {};
-    if (!notes || typeof notes !== "object") return hints;
-    for (const [issueId, raw] of Object.entries(notes)) {
-      if (typeof raw !== "string") continue;
-      if (raw.trim() === "") continue;
-      hints[issueId] = hintFor(raw);
-    }
-    return hints;
   },
 
   ensureBadge() {

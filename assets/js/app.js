@@ -30,13 +30,14 @@ import SectionEditor from "./section_editor";
 import PersonalIssueNotes from "./personal_issue_notes";
 import ProxyGitLabAssets from "./proxy_gitlab_assets";
 import ProfileImage from "./profile_image";
+import MagicHintsResync from "./magic_hints_resync";
 import "./kill_button_toggle.js"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: { LazyImages, SortableIssues, LongPressButton, SectionEditor, PersonalIssueNotes, ProxyGitLabAssets, ProfileImage }
+  hooks: { LazyImages, SortableIssues, LongPressButton, SectionEditor, PersonalIssueNotes, ProxyGitLabAssets, ProfileImage, MagicHintsResync }
 })
 
 // Show progress bar on live navigation and form submits
