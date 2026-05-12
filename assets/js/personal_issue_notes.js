@@ -10,10 +10,10 @@ export default {
   mounted() {
     this.issueId = this.el.dataset.issueId;
     this.participantId = this.el.dataset.participantId;
-    this.debounceTimer = null;
+    this.syncTimer = null;
     this.badgeTimer = null;
-    this.debounceDelay = 500; // milliseconds — push to server
-    this.badgeDelay = 120;    // milliseconds — purely local badge refresh
+    this.syncDelay = 500;  // milliseconds — push sync_notes to server
+    this.badgeDelay = 120; // milliseconds — purely local badge refresh
 
     this.badgeEl = this.ensureBadge();
 
@@ -36,74 +36,65 @@ export default {
   },
 
   destroyed() {
-    if (this.debounceTimer) clearTimeout(this.debounceTimer);
     if (this.badgeTimer) clearTimeout(this.badgeTimer);
+    if (this.syncTimer) clearTimeout(this.syncTimer);
   },
 
   loadNotes() {
-    const storageKey = `planning_poker_notes_${this.participantId}`;
-    const storedNotes = localStorage.getItem(storageKey);
+    const notes = this.readNotes();
+    this.pushEvent("sync_notes", { notes });
 
-    if (storedNotes) {
-      try {
-        const notes = JSON.parse(storedNotes);
-        this.pushEvent("sync_notes", { notes: notes });
-
-        const note = notes[this.issueId] || "";
-        if (this.el.value !== note) {
-          this.el.value = note;
-        }
-        this.refreshBadge(this.el.value);
-      } catch (e) {
-        console.error("Failed to parse notes from localStorage:", e);
-      }
-    } else {
-      this.refreshBadge(this.el.value);
+    const note = notes[this.issueId] || "";
+    if (this.el.value !== note) {
+      this.el.value = note;
     }
+    this.refreshBadge(this.el.value);
   },
 
   handleInput(event) {
     const content = event.target.value;
 
+    // localStorage is the authoritative source for magic-hint collection
+    // (MagicHintsResync reads it when the server pushes request_magic_hints).
+    // back_to_lobby can fire well within any debounce window, so we persist
+    // synchronously on every keystroke — localStorage writes are cheap.
+    this.persistLocalNote(content);
+
     // Fast-path: update the badge with a short debounce so typing feels
-    // responsive. No server round-trip here.
+    // responsive.
     if (this.badgeTimer) clearTimeout(this.badgeTimer);
     this.badgeTimer = setTimeout(() => this.refreshBadge(content), this.badgeDelay);
 
-    // Slow-path: persist + push with the full 500ms debounce.
-    if (this.debounceTimer) clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => {
-      this.saveNote(content);
-    }, this.debounceDelay);
+    // Slow-path: only the server `sync_notes` push (used to render notes
+    // alongside cards in magic-estimation) is debounced.
+    if (this.syncTimer) clearTimeout(this.syncTimer);
+    this.syncTimer = setTimeout(() => {
+      this.pushEvent("sync_notes", { notes: this.readNotes() });
+    }, this.syncDelay);
   },
 
-  saveNote(content) {
+  readNotes() {
     const storageKey = `planning_poker_notes_${this.participantId}`;
-
-    // Load existing notes
-    let notes = {};
-    const storedNotes = localStorage.getItem(storageKey);
-    if (storedNotes) {
-      try {
-        notes = JSON.parse(storedNotes);
-      } catch (e) {
-        console.error("Failed to parse notes from localStorage:", e);
-      }
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return {};
+    try {
+      return JSON.parse(raw);
+    } catch (_) {
+      return {};
     }
+  },
 
-    // Update note for current issue
+  persistLocalNote(content) {
+    const storageKey = `planning_poker_notes_${this.participantId}`;
+    const notes = this.readNotes();
+
     if (content.trim() === "") {
-      // Remove empty notes
       delete notes[this.issueId];
     } else {
       notes[this.issueId] = content;
     }
 
-    // Save to localStorage
     localStorage.setItem(storageKey, JSON.stringify(notes));
-
-    // Send updated notes to server for rendering
-    this.pushEvent("sync_notes", { notes: notes });
   },
 
   ensureBadge() {

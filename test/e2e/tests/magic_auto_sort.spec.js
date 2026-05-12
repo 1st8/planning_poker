@@ -495,4 +495,61 @@ test.describe('Magic Auto-Sort', () => {
       await cleanup();
     }
   });
+
+  test('back_to_lobby fired inside debounce window still persists notes', async ({ browser }) => {
+    // Regression: real teams often click back_to_lobby the instant a slow
+    // typist finishes — well inside the PersonalIssueNotes debounce window.
+    // localStorage must already be written synchronously on every keystroke,
+    // otherwise destroyed() cancels the pending timer and the typed value is
+    // silently dropped (producing "0/N" badges on every issue for every
+    // user).
+    const { pageA, pageB, pageC, cleanup } = await loginThree(browser);
+
+    try {
+      for (const issueId of [ISSUES.one, ISSUES.two, ISSUES.three]) {
+        await startVotingOn(pageA, issueId);
+        for (const page of [pageA, pageB, pageC]) {
+          await expect(page.locator(`#personal-notes-${issueId}`)).toBeVisible({
+            timeout: 5000,
+          });
+        }
+        for (const page of [pageA, pageB, pageC]) {
+          const ta = page.locator(`#personal-notes-${issueId}`);
+          await ta.click();
+          await ta.press('5');
+        }
+        // 50 ms is well under the 500 ms PersonalIssueNotes sync debounce —
+        // any persistence relying on that debounce will be cancelled when
+        // back_to_lobby unmounts the textarea.
+        await pageA.waitForTimeout(50);
+        await backToLobby(pageA);
+        for (const page of [pageA, pageB, pageC]) {
+          await syncLV(page, 200);
+        }
+      }
+
+      await startMagicEstimation(pageA);
+      for (const page of [pageA, pageB, pageC]) {
+        await expect(page.getByRole('heading', { name: 'Magic Estimation' })).toBeVisible({
+          timeout: 10000,
+        });
+      }
+
+      await toggleMagicOn(pageA);
+      for (const page of [pageA, pageB, pageC]) {
+        await syncLV(page, 800);
+      }
+
+      const wandFor = (page, id) =>
+        page.locator(`button[phx-click="apply_single_magic"][phx-value-issue-id="${id}"]`);
+
+      for (const page of [pageA, pageB, pageC]) {
+        await expect(wandFor(page, ISSUES.one)).toHaveText(/🪄\s*5/, { timeout: 5000 });
+        await expect(wandFor(page, ISSUES.two)).toHaveText(/🪄\s*5/, { timeout: 5000 });
+        await expect(wandFor(page, ISSUES.three)).toHaveText(/🪄\s*5/, { timeout: 5000 });
+      }
+    } finally {
+      await cleanup();
+    }
+  });
 });
