@@ -789,6 +789,40 @@ defmodule PlanningPoker.PlanningSessionTest do
       assert :gen_statem.call(pid, {:update_magic_hints, "p1", %{}}) ==
                {:error, "invalid transition"}
     end
+
+    test "integer participant_id (GitLab auth.uid) is accepted", %{pid: pid} do
+      # Mock provider hands out string ids ("mock-user-alice"), but
+      # Ueberauth's GitLab strategy returns the numeric user id from the
+      # JSON response as an integer. The :update_magic_hints handler used
+      # to guard on `is_binary(participant_id)`, which silently dropped
+      # every GitLab user's hints and produced 0/N badges on every issue.
+      :sys.replace_state(pid, fn {state, data} ->
+        {state, Map.put(data, :turn_order, [12345, 67890, "p3"])}
+      end)
+
+      :ok =
+        :gen_statem.call(
+          pid,
+          {:update_magic_hints, 12345, %{"issue-a" => %{"raw_head" => "5"}}}
+        )
+
+      :ok =
+        :gen_statem.call(
+          pid,
+          {:update_magic_hints, 67890, %{"issue-a" => %{"raw_head" => "5"}}}
+        )
+
+      :ok =
+        :gen_statem.call(
+          pid,
+          {:update_magic_hints, "p3", %{"issue-a" => %{"raw_head" => "5"}}}
+        )
+
+      state = :gen_statem.call(pid, :get_state)
+
+      assert %{status: :ready, value: 5.0, target_marker: 5, agreeing: 3, total: 3} =
+               Map.fetch!(state.magic.consensus, "issue-a")
+    end
   end
 
   describe "magic apply" do

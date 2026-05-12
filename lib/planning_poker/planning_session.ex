@@ -456,7 +456,11 @@ defmodule PlanningPoker.PlanningSession do
         :magic_estimation,
         data
       )
-      when is_binary(participant_id) and is_map(hints) do
+      when is_map(hints) do
+    # `participant_id` is whatever the LV layer pulled out of the participant
+    # struct — string for Mock, integer for GitLab (auth.uid is the numeric
+    # GitLab user id). We use it as a map key against turn_order entries
+    # produced from the same source, so no binary coercion is needed.
     # Hook sends full state — replace the inner map for this participant.
     parsed =
       hints
