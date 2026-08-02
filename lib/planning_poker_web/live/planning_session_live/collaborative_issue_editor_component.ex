@@ -275,8 +275,8 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
       add_tags: ["details", "summary", "input", "img", "video", "source"],
       add_tag_attributes: %{
         "input" => ["type", "checked", "disabled"],
-        "img" => ["src", "alt", "title"],
-        "video" => ["controls", "muted", "style", "title"],
+        "img" => ["src", "alt", "title", "width", "height"],
+        "video" => ["controls", "muted", "style", "title", "width", "height"],
         "source" => ["src", "type"]
       }
     ]
@@ -286,6 +286,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
     content
     |> strip_html_comments()
     |> fix_image_urls_with_spaces()
+    |> apply_image_attributes()
     |> MDEx.to_html!(@mdex_options)
     |> postprocess_details_blocks()
     |> convert_video_images_to_video_tags()
@@ -327,6 +328,56 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
     )
   end
 
+  # GitLab supports sizing images via an attribute block right after the image
+  # syntax: ![alt](url){width=100 height=200px}. CommonMark has no notion of
+  # these blocks, so rewrite such images to raw HTML <img> tags (passed through
+  # by MDEx thanks to `unsafe_: true`) before handing the markdown to MDEx.
+  #
+  # Only `width` and `height` are recognized, with values of 1-4 digits and an
+  # optional `px`/`%` suffix. Invalid entries are dropped; if a block contains
+  # no valid attribute at all it is left untouched so it renders as plain text,
+  # matching GitLab's behavior.
+  defp apply_image_attributes(content) do
+    Regex.replace(
+      ~r/!\[([^\]]*)\]\(([^)]+)\)\{([^}\n]*)\}/,
+      content,
+      fn match, alt, url, attrs ->
+        case parse_image_attributes(attrs) do
+          [] -> match
+          parsed -> image_tag(url, alt, parsed)
+        end
+      end
+    )
+  end
+
+  @image_attribute_regex ~r/^(width|height)=(\d{1,4}(?:px|%)?)$/
+
+  defp parse_image_attributes(attrs) do
+    attrs
+    |> String.split(~r/\s+/, trim: true)
+    |> Enum.flat_map(fn token ->
+      case Regex.run(@image_attribute_regex, token) do
+        [_match, key, value] -> [{key, value}]
+        nil -> []
+      end
+    end)
+    |> Enum.uniq_by(fn {key, _value} -> key end)
+  end
+
+  defp image_tag(url, alt, attrs) do
+    extra = Enum.map_join(attrs, fn {key, value} -> ~s( #{key}="#{value}") end)
+
+    ~s(<img src="#{escape_attribute(url)}" alt="#{escape_attribute(alt)}"#{extra} />)
+  end
+
+  defp escape_attribute(value) do
+    value
+    |> String.replace("&", "&amp;")
+    |> String.replace("<", "&lt;")
+    |> String.replace(">", "&gt;")
+    |> String.replace("\"", "&quot;")
+  end
+
   # Post-process the rendered HTML to fix markdown inside <details> blocks.
   # CommonMark doesn't parse markdown inside HTML blocks, so any markdown
   # that wasn't rendered (shows as raw text) needs a second pass.
@@ -356,8 +407,9 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
         if has_video_extension?(src) do
           type = video_mime_type(src)
           title = if alt != "", do: ~s( title="#{alt}"), else: ""
+          size = carried_size_attributes(match)
 
-          ~s(<video controls muted style="max-width: 100%"#{title}>) <>
+          ~s(<video controls muted style="max-width: 100%"#{title}#{size}>) <>
             ~s(<source src="#{src}" type="#{type}" />) <>
             ~s(Your browser does not support the video tag.</video>)
         else
@@ -365,6 +417,14 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
         end
       end
     )
+  end
+
+  # Preserve width/height set via GitLab image attributes when an <img> pointing
+  # at a video file is turned into a <video> element.
+  defp carried_size_attributes(img_tag) do
+    ~r/\s(width|height)="([^"]*)"/
+    |> Regex.scan(img_tag)
+    |> Enum.map_join(fn [_match, key, value] -> ~s( #{key}="#{value}") end)
   end
 
   defp has_video_extension?(url) do
@@ -396,12 +456,18 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
       case Regex.run(~r/^(\s*<summary>.*?<\/summary>)(.*)$/s, inner_html) do
         [_full, summary, rest] ->
           # Re-render the rest as markdown
-          rerendered = rest |> fix_image_urls_with_spaces() |> MDEx.to_html!(@mdex_options)
+          rerendered = rest
+            |> fix_image_urls_with_spaces()
+            |> apply_image_attributes()
+            |> MDEx.to_html!(@mdex_options)
           summary <> "\n" <> rerendered
 
         nil ->
           # No summary, re-render everything
-          inner_html |> fix_image_urls_with_spaces() |> MDEx.to_html!(@mdex_options)
+          inner_html
+          |> fix_image_urls_with_spaces()
+          |> apply_image_attributes()
+          |> MDEx.to_html!(@mdex_options)
       end
     else
       # No raw markdown found, return as-is
