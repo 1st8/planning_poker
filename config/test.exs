@@ -16,6 +16,9 @@ config :planning_poker, PlanningPoker.Mailer, adapter: Swoosh.Adapters.Test
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false
 
+# Route Tesla through the mock adapter so tests never reach the network
+config :tesla, adapter: Tesla.Mock
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 

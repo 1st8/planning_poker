@@ -147,7 +147,7 @@ defmodule PlanningPokerWeb.PlanningComponents do
       nil
   """
   def byline_text(issue) do
-    author = get_in(issue, ["author", "name"])
+    author = author_name(issue)
     created = format_timestamp(issue["createdAt"])
 
     case {created, author} do
@@ -157,6 +157,19 @@ defmodule PlanningPokerWeb.PlanningComponents do
       {created, author} -> "Created on #{created} by #{author}"
     end
   end
+
+  @doc """
+  Returns the name of an issue's author, or `nil` when it is unknown.
+
+  ## Examples
+
+      iex> PlanningPokerWeb.PlanningComponents.author_name(%{"author" => %{"name" => "Alice"}})
+      "Alice"
+
+      iex> PlanningPokerWeb.PlanningComponents.author_name(%{})
+      nil
+  """
+  def author_name(issue), do: get_in(issue, ["author", "name"])
 
   @doc """
   Formats a timestamp as a date such as `"15 Jan 2024"`.

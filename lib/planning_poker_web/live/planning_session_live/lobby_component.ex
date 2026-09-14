@@ -25,7 +25,10 @@ defmodule PlanningPokerWeb.PlanningSessionLive.LobbyComponent do
                   >
                     {issue["title"]}
                   </a>
-                  <small class="text-sm">{issue["referencePath"]}</small>
+                  <small class="text-sm">
+                    {issue["referencePath"]}
+                    <span :if={author_name(issue)}>· by {author_name(issue)}</span>
+                  </small>
                   <%= if issue["id"] in @data.opened_issue_ids do %>
                     <.icon
                       name="hero-check-badge-solid"
