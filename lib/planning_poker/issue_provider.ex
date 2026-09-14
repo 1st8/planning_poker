@@ -64,6 +64,11 @@ defmodule PlanningPoker.IssueProvider do
   - `"title"` (string, required) - Issue title/summary
   - `"referencePath"` (string, required) - Human-readable reference (e.g., "project#123")
   - `"webUrl"` (string, required) - URL to view the issue in the provider's UI
+  - `"author"` (map, optional) - Author information with a `"name"` field
+  - `"createdAt"` (string, optional) - ISO 8601 timestamp
+
+  A provider that cannot supply `"author"` or `"createdAt"` cheaply may omit them;
+  the UI degrades to showing whichever of the two it receives.
   """
   @callback fetch_issues(client :: any(), opts :: keyword()) ::
               {:ok, [map()]} | {:error, any()}

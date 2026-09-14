@@ -245,7 +245,9 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
       "id" => "gid://gitlab/Issue/#{issue["id"]}",
       "title" => issue["title"],
       "referencePath" => get_in(issue, ["references", "full"]),
-      "webUrl" => issue["web_url"]
+      "webUrl" => issue["web_url"],
+      "author" => %{"name" => get_in(issue, ["author", "name"])},
+      "createdAt" => issue["created_at"]
     }
   end
 

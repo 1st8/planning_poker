@@ -114,6 +114,88 @@ defmodule PlanningPokerWeb.PlanningComponents do
     end
   end
 
+  @doc """
+  Renders a one-line byline for an issue, e.g. "Created on 15 Jan 2024 by Alice Anderson".
+
+  Falls back to just the author or just the timestamp when only one of them is
+  known, and renders nothing at all when the issue carries neither.
+  """
+  attr :issue, :map, required: true
+  attr :class, :string, default: "mt-1 text-sm text-base-content/70"
+
+  def issue_byline(assigns) do
+    assigns = assign(assigns, :text, byline_text(assigns.issue))
+
+    ~H"""
+    <p :if={@text} class={@class}>{@text}</p>
+    """
+  end
+
+  @doc """
+  Builds the byline text for an issue, or `nil` when there is nothing to show.
+
+  ## Examples
+
+      iex> issue = %{"createdAt" => "2024-01-15T10:00:00Z", "author" => %{"name" => "Alice"}}
+      iex> PlanningPokerWeb.PlanningComponents.byline_text(issue)
+      "Created on 15 Jan 2024 by Alice"
+
+      iex> PlanningPokerWeb.PlanningComponents.byline_text(%{"author" => %{"name" => "Bob"}})
+      "Created by Bob"
+
+      iex> PlanningPokerWeb.PlanningComponents.byline_text(%{})
+      nil
+  """
+  def byline_text(issue) do
+    author = author_name(issue)
+    created = format_timestamp(issue["createdAt"])
+
+    case {created, author} do
+      {nil, nil} -> nil
+      {nil, author} -> "Created by #{author}"
+      {created, nil} -> "Created on #{created}"
+      {created, author} -> "Created on #{created} by #{author}"
+    end
+  end
+
+  @doc """
+  Returns the name of an issue's author, or `nil` when it is unknown.
+
+  ## Examples
+
+      iex> PlanningPokerWeb.PlanningComponents.author_name(%{"author" => %{"name" => "Alice"}})
+      "Alice"
+
+      iex> PlanningPokerWeb.PlanningComponents.author_name(%{})
+      nil
+  """
+  def author_name(issue), do: get_in(issue, ["author", "name"])
+
+  @doc """
+  Formats a timestamp as a date such as `"15 Jan 2024"`.
+
+  Accepts an ISO 8601 string or a `DateTime`, and returns `nil` for a missing or
+  unparseable timestamp. Offsets are normalised to UTC.
+
+  ## Examples
+
+      iex> PlanningPokerWeb.PlanningComponents.format_timestamp("2024-01-15T10:00:00Z")
+      "15 Jan 2024"
+
+      iex> PlanningPokerWeb.PlanningComponents.format_timestamp("not a timestamp")
+      nil
+  """
+  def format_timestamp(nil), do: nil
+
+  def format_timestamp(timestamp) when is_binary(timestamp) do
+    case DateTime.from_iso8601(timestamp) do
+      {:ok, datetime, _offset} -> format_timestamp(datetime)
+      {:error, _reason} -> nil
+    end
+  end
+
+  def format_timestamp(%DateTime{} = datetime), do: Calendar.strftime(datetime, "%d %b %Y")
+
   # Generate a Gravatar URL using SHA256 hash of email
   # Falls back to initials-based generation if no Gravatar is found
   defp generate_gravatar_url(user) do
