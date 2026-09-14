@@ -19,6 +19,8 @@ defmodule PlanningPokerWeb.PlanningSessionLive.PersonalIssueNotesComponent do
             data-issue-id={@current_issue["id"]}
             data-participant-id={@current_participant[:id]}
             data-magic-mode="true"
+            autofocus
+            phx-mounted={JS.focus()}
           ><%= get_note(@personal_notes, @current_issue["id"]) %></textarea>
           <p class="text-xs text-base-content/50">
             Notes are saved locally and only visible to you
