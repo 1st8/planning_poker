@@ -69,7 +69,7 @@
         <pre>unknown state <%= inspect(data) %></pre>
     <% end %>
   </div>
-  <div class="space-y-8">
+  <div class="space-y-8 sticky top-8 max-h-[calc(100vh-4rem)] overflow-y-auto">
     <%= if @planning_session.state == :voting and @planning_session.mode != :magic_estimation do %>
       <.live_component
         module={PlanningPokerWeb.PlanningSessionLive.VotingControlsComponent}
