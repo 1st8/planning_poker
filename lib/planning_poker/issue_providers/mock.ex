@@ -556,6 +556,244 @@ defmodule PlanningPoker.IssueProviders.Mock do
           "title" => "Search & Discovery",
           "reference" => "&5"
         }
+      },
+      %{
+        "id" => "mock-issue-9",
+        "iid" => "9",
+        "title" => "Migrate the reporting pipeline to the new analytics backend",
+        "description" => """
+        # Reporting Pipeline Migration
+
+        The current reporting pipeline was built around the legacy analytics
+        service and has grown well past what it was designed for. Nightly runs
+        regularly overshoot their window, backfills have to be babysat, and every
+        new report means touching three different services. This issue tracks
+        moving the whole pipeline onto the new analytics backend.
+
+        This is a deliberately long issue: it exists to exercise the scrolling
+        behaviour of the issue view.
+
+        ## Background
+
+        The pipeline currently consists of four stages that each evolved
+        separately over the last three years:
+
+        1. **Collection** — a cron job pulls raw events from the primary database
+           and writes them to object storage as newline-delimited JSON.
+        2. **Normalisation** — a second job reads those files, applies a pile of
+           accumulated correction rules, and writes Parquet.
+        3. **Aggregation** — a set of SQL scripts build the daily rollups that
+           back every dashboard.
+        4. **Delivery** — a mailer renders the rollups into the weekly digest.
+
+        Each stage has its own retry semantics, its own alerting, and its own idea
+        of what a "day" is. Stage 1 uses UTC, stage 3 uses the reporting tenant's
+        local timezone, and stage 4 uses whatever the recipient's profile says.
+        This is the source of most of the discrepancies people report.
+
+        ## Goals
+
+        - Collapse the four stages into a single orchestrated workflow
+        - One consistent definition of a reporting day, applied end to end
+        - Backfills that can be triggered without manual intervention
+        - Cut the nightly run from roughly six hours to under one
+        - No change to the numbers users already see, except where they were wrong
+
+        ## Non-Goals
+
+        - Redesigning the dashboards themselves
+        - Changing the weekly digest layout
+        - Migrating historical data older than 24 months
+        - Replacing the primary database
+
+        ## Proposed Architecture
+
+        The new backend gives us incremental materialised views, which removes the
+        need for the hand-written aggregation scripts entirely.
+
+        ```
+        events ──▶ ingest ──▶ staging tables ──▶ materialised views ──▶ API
+                     │                                    │
+                     └── dead letter queue                └── digest renderer
+        ```
+
+        Ingest becomes the only component we own outright. Everything downstream
+        is declarative, which means the correction rules have to move somewhere
+        explicit rather than living inside the normalisation job.
+
+        ### Ingest
+
+        A single long-running consumer replaces the collection cron. It reads from
+        the event stream, validates against a schema, and writes into staging
+        tables. Anything that fails validation goes to a dead letter queue with
+        enough context to replay it.
+
+        ```elixir
+        defmodule Reporting.Ingest do
+          def handle_batch(events) do
+            events
+            |> Enum.map(&validate/1)
+            |> Enum.split_with(&match?({:ok, _}, &1))
+            |> then(fn {ok, failed} ->
+              write_staging(ok)
+              write_dead_letter(failed)
+            end)
+          end
+        end
+        ```
+
+        ### Correction Rules
+
+        The normalisation job currently carries 47 correction rules, most of them
+        undocumented and several of them contradictory. Before the migration each
+        rule needs to be classified:
+
+        | Category | Count | Action |
+        | --- | --- | --- |
+        | Schema fixes | 18 | Move into the ingest schema |
+        | Historical one-offs | 14 | Freeze as a static backfill, then drop |
+        | Tenant-specific | 9 | Move into tenant configuration |
+        | Unknown | 6 | Investigate individually |
+
+        The six unknown rules are the risk here. Three of them reference tenant
+        IDs that no longer exist. The other three appear to correct for a bug that
+        was fixed upstream two years ago, but nobody is certain.
+
+        <details>
+        <summary>Full list of the six unknown rules</summary>
+
+        - `rule_0012` — rewrites `event_type` from `signup` to `registration` for
+          tenant 4471, which was deleted in 2023
+        - `rule_0019` — drops events where `duration_ms` is negative; upstream has
+          not emitted negative durations since the clock fix
+        - `rule_0023` — same as `rule_0019` but scoped to a single region
+        - `rule_0031` — adds a synthetic `source` field when missing; the field has
+          been required at ingest since last spring
+        - `rule_0038` — references tenant 5120, also deleted
+        - `rule_0044` — references tenant 5121, also deleted
+
+        Recommendation: drop all six behind a flag, run a week of shadow
+        comparison, and remove them if nothing changes.
+
+        </details>
+
+        ## Migration Plan
+
+        The migration runs in five phases. Phases 1 and 2 are safe to run against
+        production because nothing reads from the new backend yet.
+
+        ### Phase 1 — Shadow Ingest
+
+        Stand up the ingest consumer alongside the existing collection job. Both
+        write, nothing reads. Run for two weeks and compare row counts daily.
+
+        - [ ] Deploy the consumer to staging
+        - [ ] Verify schema validation against a full day of production events
+        - [ ] Deploy to production with writes disabled
+        - [ ] Enable writes to the staging tables
+        - [ ] Set up the daily comparison report
+        - [ ] Review two weeks of comparisons
+
+        ### Phase 2 — Materialised Views
+
+        Build the views that replace the aggregation scripts. Each view gets
+        validated against the corresponding legacy rollup before anything switches
+        over.
+
+        - [ ] Port the daily active users rollup
+        - [ ] Port the retention cohort rollup
+        - [ ] Port the revenue rollup
+        - [ ] Port the per-tenant usage rollup
+        - [ ] Reconcile each against 90 days of legacy output
+        - [ ] Document every discrepancy found
+
+        ### Phase 3 — Read Switch
+
+        Point the API at the new views, one dashboard at a time, behind a
+        per-tenant flag. Start with internal tenants.
+
+        - [ ] Flag infrastructure in the API
+        - [ ] Switch internal tenants
+        - [ ] Switch 5% of external tenants
+        - [ ] Switch 50%
+        - [ ] Switch everyone
+
+        ### Phase 4 — Digest
+
+        Move the weekly digest onto the new API. This is the phase most likely to
+        produce user-visible differences, because the digest is where the timezone
+        inconsistency is most obvious.
+
+        - [ ] Render both versions for a full cycle
+        - [ ] Diff the rendered output
+        - [ ] Get sign-off on the differences that are corrections
+        - [ ] Cut over
+
+        ### Phase 5 — Decommission
+
+        - [ ] Disable the collection cron
+        - [ ] Disable the normalisation job
+        - [ ] Archive the aggregation scripts
+        - [ ] Remove the legacy tables after a 30 day hold
+        - [ ] Update the runbooks
+
+        ## Risks
+
+        **Discrepancies that turn out to be corrections.** Some of the numbers
+        people rely on are wrong today. Fixing them silently during a migration is
+        how you lose trust in the whole pipeline. Every difference found in phase 2
+        needs to be written down and explicitly signed off before phase 3.
+
+        **The 24 month boundary.** Anything older stays in the legacy tables. The
+        API needs to serve both, which means a union view for the overlap period
+        and a clear story for what happens when someone asks for three year old
+        data.
+
+        **Backfill cost.** The initial backfill is an estimated 40 hours of compute.
+        It has to run without blocking the incremental path, which the new backend
+        supports but which we have not tested at this volume.
+
+        **Nobody owns the digest renderer.** It was written by someone who has
+        since left, has no tests, and is the only component that talks directly to
+        the mailer.
+
+        ## Acceptance Criteria
+
+        - [ ] Nightly run completes in under one hour at p95
+        - [ ] Backfills can be triggered from the admin UI
+        - [ ] Every dashboard shows the same numbers pre- and post-migration,
+              except where a discrepancy was explicitly signed off
+        - [ ] A reporting day means the same thing in every stage
+        - [ ] The dead letter queue is monitored and alerting
+        - [ ] Legacy jobs are removed, not merely disabled
+        - [ ] Runbooks updated for the new failure modes
+
+        ## Open Questions
+
+        1. Do we keep the union view permanently, or force a hard cutoff at 24
+           months and accept that older data becomes unavailable?
+        2. Should tenant-specific correction rules be configuration or code?
+           Configuration is more flexible; code is reviewable.
+        3. Who owns the digest renderer after this lands?
+        4. Is 40 hours of backfill compute acceptable, or do we need to stage it?
+
+        ## References
+
+        - The original pipeline design document from 2021
+        - The analytics backend evaluation from last quarter
+        - The incident review from the March backfill failure
+        - The timezone discrepancy thread in support
+        """,
+        "descriptionHtml" => "<h1>Reporting Pipeline Migration</h1>",
+        "referencePath" => "planning-poker#9",
+        "webUrl" => "http://localhost:4000/mock/issues/9",
+        "author" => %{"name" => "Bob Builder"},
+        "createdAt" => "2024-01-23T09:00:00Z",
+        "weight" => nil,
+        "epic" => %{
+          "title" => "Analytics Platform",
+          "reference" => "&6"
+        }
       }
     ]
     |> Enum.map(fn issue -> {issue["id"], issue} end)
