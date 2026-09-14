@@ -7,15 +7,18 @@ defmodule PlanningPokerWeb.PlanningSessionLive.VotingComponent do
     ~H"""
     <main>
       <.layout_box title="Voting">
-        <h1 class="text-4xl font-semibold">
-          <a
-            class="underline decoration-primary hover:decoration-primary/50 decoration-4"
-            href={@issue["webUrl"]}
-            target="_blank"
-          >
-            {@issue["title"]}
-          </a>
-        </h1>
+        <hgroup>
+          <h1 class="text-4xl font-semibold">
+            <a
+              class="underline decoration-primary hover:decoration-primary/50 decoration-4"
+              href={@issue["webUrl"]}
+              target="_blank"
+            >
+              {@issue["title"]}
+            </a>
+          </h1>
+          <.issue_byline issue={@issue} />
+        </hgroup>
         
     <!-- Collaborative Issue Editor -->
         <.live_component
