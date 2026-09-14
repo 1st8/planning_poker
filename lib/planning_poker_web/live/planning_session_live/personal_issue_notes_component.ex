@@ -2,6 +2,8 @@ defmodule PlanningPokerWeb.PlanningSessionLive.PersonalIssueNotesComponent do
   use PlanningPokerWeb, :live_component
 
   def render(assigns) do
+    assigns = assign(assigns, :ready?, !!assigns.current_participant[:readiness])
+
     ~H"""
     <div class="flex flex-col gap-8 bg-base-100 border-8 border-neutral p-8">
       <div class="flex flex-col gap-8">
@@ -21,6 +23,18 @@ defmodule PlanningPokerWeb.PlanningSessionLive.PersonalIssueNotesComponent do
           <p class="text-xs text-base-content/50">
             Notes are saved locally and only visible to you
           </p>
+          <button
+            class={[
+              "btn btn-lg text-lg btn-shadow justify-center mt-2",
+              (@ready? && "btn-accent btn-active") || "btn-primary"
+            ]}
+            phx-click="set_readiness"
+            phx-value-ready={to_string(!@ready?)}
+            aria-pressed={to_string(@ready?)}
+          >
+            <.icon :if={@ready?} name="hero-check-circle-solid" class="h-6 w-6" />
+            <span>I'm ready</span>
+          </button>
         </div>
       </div>
     </div>
