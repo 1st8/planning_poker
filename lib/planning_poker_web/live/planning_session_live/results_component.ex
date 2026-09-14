@@ -7,15 +7,18 @@ defmodule PlanningPokerWeb.PlanningSessionLive.ResultsComponent do
     ~H"""
     <main>
       <.layout_box title="Results">
-        <h2 class="text-3xl font-semibold">
-          <a
-            class="underline decoration-primary hover:decoration-primary/50 decoration-4"
-            href={@issue["webUrl"]}
-            target="_blank"
-          >
-            {@issue["title"]}
-          </a>
-        </h2>
+        <hgroup>
+          <h2 class="text-3xl font-semibold">
+            <a
+              class="underline decoration-primary hover:decoration-primary/50 decoration-4"
+              href={@issue["webUrl"]}
+              target="_blank"
+            >
+              {@issue["title"]}
+            </a>
+          </h2>
+          <.issue_byline issue={@issue} />
+        </hgroup>
         <div class="flex flex-wrap gap-8 items-center">
           <%= for vote <- @votes do %>
             <% {bg, text} = @classes[vote[:vote]] %>
