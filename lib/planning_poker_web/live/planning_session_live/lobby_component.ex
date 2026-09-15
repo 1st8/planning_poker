@@ -28,6 +28,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.LobbyComponent do
                   <small class="text-sm">
                     {issue["referencePath"]}
                     <span :if={author_name(issue)}>· by {author_name(issue)}</span>
+                    <span :if={comment_count_label(issue)}>· {comment_count_label(issue)}</span>
                   </small>
                   <%= if issue["id"] in @data.opened_issue_ids do %>
                     <.icon

@@ -4,6 +4,8 @@ defmodule PlanningPokerWeb.PlanningComponents do
   """
   use Phoenix.Component
 
+  alias Phoenix.LiveView.JS
+
   @doc """
   Renders a profile image using Gravatar.
 
@@ -123,12 +125,62 @@ defmodule PlanningPokerWeb.PlanningComponents do
   attr :issue, :map, required: true
   attr :class, :string, default: "mt-1 text-sm text-base-content/70"
 
+  attr :comments_anchor, :string,
+    default: nil,
+    doc: "id of the comments block on the page; the count links there when given"
+
   def issue_byline(assigns) do
-    assigns = assign(assigns, :text, byline_text(assigns.issue))
+    assigns =
+      assigns
+      |> assign(:text, byline_text(assigns.issue))
+      |> assign(:comment_label, comment_count_label(assigns.issue))
 
     ~H"""
-    <p :if={@text} class={@class}>{@text}</p>
+    <p :if={@text || @comment_label} class={@class}>
+      <span :if={@text}>{@text}</span>
+      <span :if={@text && @comment_label} aria-hidden="true">·</span>
+      <a
+        :if={@comment_label && @comments_anchor}
+        href={"##{@comments_anchor}"}
+        phx-click={JS.set_attribute({"open", "true"}, to: "##{@comments_anchor}")}
+        class="underline decoration-dotted underline-offset-2 hover:decoration-solid"
+      >
+        {@comment_label}
+      </a>
+      <span :if={@comment_label && !@comments_anchor}>{@comment_label}</span>
+    </p>
     """
+  end
+
+  @doc """
+  Describes how many comments an issue has, or `nil` when it has none.
+
+  ## Examples
+
+      iex> PlanningPokerWeb.PlanningComponents.comment_count_label(%{"comments" => [%{}]})
+      "1 comment"
+
+      iex> PlanningPokerWeb.PlanningComponents.comment_count_label(%{"commentCount" => 3})
+      "3 comments"
+
+      iex> PlanningPokerWeb.PlanningComponents.comment_count_label(%{"comments" => [%{}, %{}]})
+      "2 comments"
+
+      iex> PlanningPokerWeb.PlanningComponents.comment_count_label(%{})
+      nil
+  """
+  def comment_count_label(issue) do
+    case comment_count(issue) do
+      0 -> nil
+      1 -> "1 comment"
+      count -> "#{count} comments"
+    end
+  end
+
+  # The list view is served a bare count, the detail view the comments
+  # themselves; either answers the question.
+  defp comment_count(issue) do
+    issue["commentCount"] || length(List.wrap(issue["comments"]))
   end
 
   @doc """
@@ -195,6 +247,32 @@ defmodule PlanningPokerWeb.PlanningComponents do
   end
 
   def format_timestamp(%DateTime{} = datetime), do: Calendar.strftime(datetime, "%d %b %Y")
+
+  @doc """
+  Formats a timestamp as a date and time such as `"15 Sep 2026, 11:44"`.
+
+  Used where several entries can share a day and the time tells them apart.
+  Accepts the same inputs as `format_timestamp/1` and returns `nil` the same way.
+
+  ## Examples
+
+      iex> PlanningPokerWeb.PlanningComponents.format_datetime("2026-09-15T11:44:09Z")
+      "15 Sep 2026, 11:44"
+
+      iex> PlanningPokerWeb.PlanningComponents.format_datetime(nil)
+      nil
+  """
+  def format_datetime(nil), do: nil
+
+  def format_datetime(timestamp) when is_binary(timestamp) do
+    case DateTime.from_iso8601(timestamp) do
+      {:ok, datetime, _offset} -> format_datetime(datetime)
+      {:error, _reason} -> nil
+    end
+  end
+
+  def format_datetime(%DateTime{} = datetime),
+    do: Calendar.strftime(datetime, "%d %b %Y, %H:%M")
 
   # Generate a Gravatar URL using SHA256 hash of email
   # Falls back to initials-based generation if no Gravatar is found
