@@ -244,6 +244,7 @@ defmodule PlanningPoker.IssueProviders.Mock do
         "webUrl" => "http://localhost:4000/mock/issues/1",
         "author" => %{"name" => "Alice Anderson"},
         "createdAt" => "2024-01-15T10:00:00Z",
+        "priority" => "High - Next Sprint",
         "weight" => nil,
         "epic" => %{
           "title" => "User Management Epic",
@@ -269,6 +270,7 @@ defmodule PlanningPoker.IssueProviders.Mock do
         "webUrl" => "http://localhost:4000/mock/issues/2",
         "author" => %{"name" => "Bob Builder"},
         "createdAt" => "2024-01-16T14:30:00Z",
+        "priority" => "Low - Nice to Have",
         "weight" => nil
       },
       %{
@@ -296,6 +298,7 @@ defmodule PlanningPoker.IssueProviders.Mock do
         "webUrl" => "http://localhost:4000/mock/issues/3",
         "author" => %{"name" => "Carol Chen"},
         "createdAt" => "2024-01-17T09:15:00Z",
+        "priority" => "Medium - Next Version",
         "weight" => nil,
         "epic" => %{
           "title" => "Communication Features",
@@ -331,6 +334,7 @@ defmodule PlanningPoker.IssueProviders.Mock do
         "webUrl" => "http://localhost:4000/mock/issues/4",
         "author" => %{"name" => "Alice Anderson"},
         "createdAt" => "2024-01-18T11:00:00Z",
+        "priority" => "Urgent - ASAP",
         "weight" => nil,
         "epic" => %{
           "title" => "Technical Debt",
@@ -789,6 +793,7 @@ defmodule PlanningPoker.IssueProviders.Mock do
         "webUrl" => "http://localhost:4000/mock/issues/9",
         "author" => %{"name" => "Bob Builder"},
         "createdAt" => "2024-01-23T09:00:00Z",
+        "priority" => "High - Next Sprint",
         "weight" => nil,
         "epic" => %{
           "title" => "Analytics Platform",

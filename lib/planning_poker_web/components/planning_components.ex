@@ -121,15 +121,54 @@ defmodule PlanningPokerWeb.PlanningComponents do
   known, and renders nothing at all when the issue carries neither.
   """
   attr :issue, :map, required: true
-  attr :class, :string, default: "mt-1 text-sm text-base-content/70"
+
+  attr :class, :string,
+    default: "mt-2 flex flex-wrap items-center gap-2 text-sm text-base-content/70"
 
   def issue_byline(assigns) do
-    assigns = assign(assigns, :text, byline_text(assigns.issue))
+    assigns =
+      assigns
+      |> assign(:text, byline_text(assigns.issue))
+      |> assign(:priority, assigns.issue["priority"])
 
     ~H"""
-    <p :if={@text} class={@class}>{@text}</p>
+    <p :if={@text || @priority} class={@class}>
+      <span :if={@text}>{@text}</span>
+      <.issue_priority_badge issue={@issue} />
+    </p>
     """
   end
+
+  @doc """
+  Renders the issue priority as an inline badge, and nothing at all when the
+  issue has none.
+
+  The provider supplies the human-readable option label (e.g. "High - Must Have").
+  """
+  attr :issue, :map, required: true
+  attr :class, :string, default: nil
+
+  def issue_priority_badge(assigns) do
+    assigns = assign(assigns, :priority, assigns.issue["priority"])
+
+    ~H"""
+    <span :if={@priority} class={["badge badge-sm", priority_badge_class(@priority), @class]}>
+      <span class="sr-only">Priority:</span>
+      {@priority}
+    </span>
+    """
+  end
+
+  # The provider supplies the option label verbatim: "Urgent - ASAP",
+  # "High - Next Sprint", "Medium - Next Version" or "Low - Nice to Have".
+  # Matching on the leading word keeps this working if the wording after the
+  # dash changes. The four levels escalate from muted to red; anything
+  # unrecognised stays neutral rather than guessing at a severity.
+  defp priority_badge_class("Urgent" <> _), do: "badge-error"
+  defp priority_badge_class("High" <> _), do: "badge-warning"
+  defp priority_badge_class("Medium" <> _), do: "badge-info"
+  defp priority_badge_class("Low" <> _), do: "badge-ghost"
+  defp priority_badge_class(_), do: "badge-neutral"
 
   @doc """
   Builds the byline text for an issue, or `nil` when there is nothing to show.
