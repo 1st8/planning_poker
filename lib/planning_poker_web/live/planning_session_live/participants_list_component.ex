@@ -14,7 +14,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.ParticipantsListComponent do
               "flex items-center gap-2 relative p-1",
               participant.id == @active_participant_id && "participant-active"
             ]}>
-              <div class="avatar h-10 w-10">
+              <div class="avatar h-10 w-10 relative">
                 <.profile_image
                   user={participant}
                   class={"mask mask-squircle #{if participant[:vote], do: "blur-sm grayscale", else: ""}"}
@@ -22,6 +22,12 @@ defmodule PlanningPokerWeb.PlanningSessionLive.ParticipantsListComponent do
                 />
                 <%= if participant[:vote] do %>
                   <.icon name="hero-check-badge-solid" class="text-success absolute h-10 w-10" />
+                <% end %>
+                <%= if participant[:readiness] do %>
+                  <span class="absolute -bottom-1 -right-1 rounded-full bg-base-100 leading-none">
+                    <.icon name="hero-check-circle-solid" class="block h-5 w-5 text-success" />
+                    <span class="sr-only">ready</span>
+                  </span>
                 <% end %>
               </div>
               <div class="flex flex-col">
@@ -31,11 +37,6 @@ defmodule PlanningPokerWeb.PlanningSessionLive.ParticipantsListComponent do
                     <span class="badge badge-primary badge-xs">dran</span>
                   <% end %>
                 </span>
-                <%= if participant[:readiness] do %>
-                  <small class="text-xs opacity-70">
-                    {render_readiness(participant[:readiness])}
-                  </small>
-                <% end %>
               </div>
             </li>
           <% end %>
@@ -62,18 +63,6 @@ defmodule PlanningPokerWeb.PlanningSessionLive.ParticipantsListComponent do
       "#{first_name} #{last_name_initial}."
     else
       first_name
-    end
-  end
-
-  # Helper function to render readiness status
-  defp render_readiness(value) do
-    case value do
-      "huh" -> "🤔 huh?"
-      "umm" -> "😕 umm..."
-      "okay" -> "🤷 okay I guess"
-      "clear" -> "👍 pretty clear"
-      "got_it" -> "🎯 10/10 got it"
-      _ -> ""
     end
   end
 end

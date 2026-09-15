@@ -81,11 +81,14 @@ defmodule PlanningPokerWeb.PlanningSessionLive.Show do
     {:noreply, socket}
   end
 
-  def handle_event("set_readiness", %{"value" => value}, socket) do
+  # The button sends the state it wants to reach, so what the participant sees
+  # determines the outcome. Withdrawing stores nil rather than false, which keeps
+  # every `participant[:readiness]` check a plain truthiness test.
+  def handle_event("set_readiness", %{"ready" => ready}, socket) do
     Planning.set_readiness(
       socket.assigns.planning_session.id,
       socket.assigns.current_participant,
-      value
+      if(ready == "true", do: true)
     )
 
     {:noreply, socket}
