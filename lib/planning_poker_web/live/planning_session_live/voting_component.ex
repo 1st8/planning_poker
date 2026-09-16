@@ -3,6 +3,8 @@ defmodule PlanningPokerWeb.PlanningSessionLive.VotingComponent do
 
   alias PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
 
+  import PlanningPokerWeb.PlanningSessionLive.IssueCommentsComponent, only: [issue_comments: 1]
+
   def render(assigns) do
     ~H"""
     <main>
@@ -17,7 +19,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.VotingComponent do
               {@issue["title"]}
             </a>
           </h1>
-          <.issue_byline issue={@issue} />
+          <.issue_byline issue={@issue} comments_anchor="issue-comments" />
         </hgroup>
         
     <!-- Collaborative Issue Editor -->
@@ -28,6 +30,8 @@ defmodule PlanningPokerWeb.PlanningSessionLive.VotingComponent do
           current_user_id={@current_user_id}
           session_id={@session_id}
         />
+
+        <.issue_comments issue={@issue} />
 
         <:controls>
           <%= if @mode == :magic_estimation do %>

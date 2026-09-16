@@ -245,6 +245,27 @@ defmodule PlanningPoker.IssueProviders.Mock do
         "author" => %{"name" => "Alice Anderson"},
         "createdAt" => "2024-01-15T10:00:00Z",
         "priority" => "High - Next Sprint",
+        "comments" => [
+          %{
+            "id" => "mock-note-1",
+            "body" => """
+            Ich habe mir das mal angesehen. Der Avatar-Upload braucht noch eine
+            Entscheidung: **Gravatar** oder eigener Upload?
+
+            - Gravatar: nichts zu speichern, aber externe Abhängigkeit
+            - Upload: mehr Arbeit, dafür unabhängig
+            """,
+            "author" => %{"name" => "Bob Builder"},
+            "createdAt" => "2024-01-15T13:20:00Z"
+          },
+          %{
+            "id" => "mock-note-2",
+            "body" =>
+              "Lass uns mit Gravatar starten, der Upload kann später kommen. Siehe auch #3.",
+            "author" => %{"name" => "Carol Chen"},
+            "createdAt" => "2024-01-16T08:05:00Z"
+          }
+        ],
         "weight" => nil,
         "epic" => %{
           "title" => "User Management Epic",
@@ -271,6 +292,14 @@ defmodule PlanningPoker.IssueProviders.Mock do
         "author" => %{"name" => "Bob Builder"},
         "createdAt" => "2024-01-16T14:30:00Z",
         "priority" => "Low - Nice to Have",
+        "comments" => [
+          %{
+            "id" => "mock-note-3",
+            "body" => "Tritt nur auf Geräten unter 400px Breite auf.",
+            "author" => %{"name" => "Alice Anderson"},
+            "createdAt" => "2024-01-17T09:00:00Z"
+          }
+        ],
         "weight" => nil
       },
       %{

@@ -61,6 +61,18 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
           name
         }
         createdAt
+        notes {
+          nodes {
+            id
+            body
+            system
+            internal
+            createdAt
+            author {
+              name
+            }
+          }
+        }
       }
     }
   """
@@ -177,6 +189,7 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
             issue
             |> Map.put(:base_url, System.get_env("GITLAB_SITE", "https://gitlab.com"))
             |> Map.put("priority", extract_priority(env.body))
+            |> Map.put("comments", extract_comments(issue))
 
           {:ok, enhanced_issue}
         else
@@ -245,6 +258,26 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
     end
   end
 
+  # GitLab returns activity entries and human comments through the same list:
+  # "changed the description" and "assigned to @x" arrive as notes with
+  # system: true and vastly outnumber the real ones. Internal notes are meant
+  # for the team only, so they are dropped too. Oldest first.
+  defp extract_comments(issue) do
+    issue
+    |> get_in(["notes", "nodes"])
+    |> List.wrap()
+    |> Enum.reject(&(&1["system"] || &1["internal"]))
+    |> Enum.sort_by(& &1["createdAt"])
+    |> Enum.map(
+      &%{
+        "id" => &1["id"],
+        "body" => &1["body"],
+        "author" => %{"name" => get_in(&1, ["author", "name"])},
+        "createdAt" => &1["createdAt"]
+      }
+    )
+  end
+
   # Work items share the numeric id of the issue they represent.
   defp work_item_id("gid://gitlab/Issue/" <> id), do: "gid://gitlab/WorkItem/" <> id
   defp work_item_id(issue_id), do: issue_id
@@ -294,7 +327,10 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
       "referencePath" => get_in(issue, ["references", "full"]),
       "webUrl" => issue["web_url"],
       "author" => %{"name" => get_in(issue, ["author", "name"])},
-      "createdAt" => issue["created_at"]
+      "createdAt" => issue["created_at"],
+      # REST already excludes system notes from this count, so it matches what
+      # the detail view lists without costing a second request.
+      "commentCount" => issue["user_notes_count"]
     }
   end
 

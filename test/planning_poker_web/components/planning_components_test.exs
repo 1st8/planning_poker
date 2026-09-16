@@ -139,4 +139,64 @@ defmodule PlanningPokerWeb.PlanningComponentsTest do
       assert badge(%{"priority" => nil}) == ""
     end
   end
+
+  describe "issue_byline/1 with comments" do
+    defp byline(issue, opts \\ []) do
+      render_component(&PlanningComponents.issue_byline/1, [issue: issue] ++ opts)
+    end
+
+    test "puts the count after the author, separated by a middle dot" do
+      html =
+        byline(%{
+          "createdAt" => "2024-01-15T10:00:00Z",
+          "author" => %{"name" => "Alice Anderson"},
+          "comments" => [%{}, %{}]
+        })
+
+      text =
+        html |> String.replace(~r/<[^>]*>/, "") |> String.replace(~r/\s+/, " ") |> String.trim()
+
+      assert text == "Created on 15 Jan 2024 by Alice Anderson · 2 comments"
+    end
+
+    test "links the count to the given anchor and opens the block" do
+      html = byline(%{"comments" => [%{}, %{}]}, comments_anchor: "issue-comments")
+
+      assert html =~ ~s(href="#issue-comments")
+      # the click opens the collapsed block, so the anchor lands on something visible
+      assert html =~ "set_attr"
+      assert html =~ "open"
+      assert html =~ "2 comments"
+    end
+
+    test "leaves the count as plain text without an anchor" do
+      html = byline(%{"comments" => [%{}, %{}]})
+
+      refute html =~ "<a"
+      assert html =~ "2 comments"
+    end
+
+    test "singularizes a lone comment" do
+      assert byline(%{"comments" => [%{}]}) =~ "1 comment"
+    end
+
+    test "uses the bare count when the issue carries no comment bodies" do
+      assert byline(%{"commentCount" => 4}) =~ "4 comments"
+      assert byline(%{"commentCount" => 1}) =~ "1 comment"
+      assert byline(%{"commentCount" => 0}) == ""
+    end
+
+    test "omits the count and its separator when there are no comments" do
+      html = byline(%{"createdAt" => "2024-01-15T10:00:00Z", "comments" => []})
+
+      text =
+        html |> String.replace(~r/<[^>]*>/, "") |> String.replace(~r/\s+/, " ") |> String.trim()
+
+      assert text == "Created on 15 Jan 2024"
+    end
+
+    test "renders for an issue that only has comments" do
+      assert byline(%{"comments" => [%{}]}) =~ "1 comment"
+    end
+  end
 end

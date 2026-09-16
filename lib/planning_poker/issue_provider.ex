@@ -66,6 +66,8 @@ defmodule PlanningPoker.IssueProvider do
   - `"webUrl"` (string, required) - URL to view the issue in the provider's UI
   - `"author"` (map, optional) - Author information with a `"name"` field
   - `"createdAt"` (string, optional) - ISO 8601 timestamp
+  - `"commentCount"` (integer, optional) - Number of human-written comments,
+    excluding any activity entries the provider generates itself
 
   A provider that cannot supply `"author"` or `"createdAt"` cheaply may omit them;
   the UI degrades to showing whichever of the two it receives.
@@ -99,6 +101,9 @@ defmodule PlanningPoker.IssueProvider do
     `"High - Next Sprint"`, `nil` when the provider has no such concept or the
     issue has none set
   - `"epic"` (map, optional) - Epic/parent information with `"title"` and `"reference"` fields
+  - `"comments"` (list, optional) - Human-written comments, oldest first, each with
+    `"id"`, `"body"` (markdown), `"author"` with a `"name"`, and `"createdAt"`.
+    Activity entries the provider generates itself are not included.
   - `:base_url` (string, atom key) - Base URL of the provider instance
   - Other provider-specific fields
 
