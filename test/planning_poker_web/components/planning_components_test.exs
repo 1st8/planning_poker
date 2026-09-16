@@ -73,6 +73,71 @@ defmodule PlanningPokerWeb.PlanningComponentsTest do
 
       refute html =~ "Created"
     end
+
+    test "carries the priority badge on the same line" do
+      html =
+        render_component(&PlanningComponents.issue_byline/1,
+          issue: %{
+            "createdAt" => "2024-01-15T10:00:00Z",
+            "author" => %{"name" => "Alice Anderson"},
+            "priority" => "Urgent"
+          }
+        )
+
+      assert html =~ "Created on 15 Jan 2024 by Alice Anderson"
+      assert html =~ "Urgent"
+      assert html =~ "badge-error"
+      # one paragraph holding both, rather than a second block below
+      assert html |> String.split("<p") |> length() == 2
+    end
+
+    test "still renders the badge for an issue with a priority but no author or date" do
+      html =
+        render_component(&PlanningComponents.issue_byline/1, issue: %{"priority" => "High"})
+
+      refute html =~ "Created"
+      assert html =~ "High"
+      assert html =~ "badge-warning"
+    end
+  end
+
+  describe "issue_priority_badge/1" do
+    defp badge(issue) do
+      render_component(&PlanningComponents.issue_priority_badge/1, issue: issue)
+    end
+
+    test "renders the priority label" do
+      html = badge(%{"priority" => "Low - Nice to Have"})
+
+      assert html =~ "Low - Nice to Have"
+      assert html =~ "badge"
+    end
+
+    test "colours the badge by the leading word of the label" do
+      assert badge(%{"priority" => "Urgent - ASAP"}) =~ "badge-error"
+      assert badge(%{"priority" => "High - Next Sprint"}) =~ "badge-warning"
+      assert badge(%{"priority" => "Medium - Next Version"}) =~ "badge-info"
+      assert badge(%{"priority" => "Low - Nice to Have"}) =~ "badge-ghost"
+    end
+
+    test "colours the bare level labels the same way" do
+      assert badge(%{"priority" => "Urgent"}) =~ "badge-error"
+      assert badge(%{"priority" => "High"}) =~ "badge-warning"
+      assert badge(%{"priority" => "Medium"}) =~ "badge-info"
+      assert badge(%{"priority" => "Low"}) =~ "badge-ghost"
+    end
+
+    test "falls back to a neutral badge for an unrecognised label" do
+      html = badge(%{"priority" => "P1"})
+
+      assert html =~ "P1"
+      assert html =~ "badge-neutral"
+    end
+
+    test "renders nothing when the issue has no priority" do
+      assert badge(%{}) == ""
+      assert badge(%{"priority" => nil}) == ""
+    end
   end
 
   describe "issue_byline/1 with comments" do

@@ -23,8 +23,27 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
 
   @behaviour PlanningPoker.IssueProvider
 
+  # The priority lives on the work item as a custom field, not on the issue type,
+  # so it is fetched as a second top-level field of the same query rather than as
+  # a second request. Work items share the numeric id of the issue they represent.
   @get_issue_query """
-    query GetIssue($issueId: IssueID!) {
+    query GetIssue($issueId: IssueID!, $workItemId: WorkItemID!) {
+      workItem(id: $workItemId) {
+        widgets {
+          ... on WorkItemWidgetCustomFields {
+            customFieldValues {
+              customField {
+                name
+              }
+              ... on WorkItemSelectFieldValue {
+                selectedOptions {
+                  value
+                }
+              }
+            }
+          }
+        }
+      }
       issue(id: $issueId) {
         id
         iid
@@ -149,7 +168,8 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
     case Tesla.post(client, "/api/graphql", %{
            operationName: "GetIssue",
            variables: %{
-             issueId: issue_id
+             issueId: issue_id,
+             workItemId: work_item_id(issue_id)
            },
            query: @get_issue_query
          }) do
@@ -168,6 +188,7 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
           enhanced_issue =
             issue
             |> Map.put(:base_url, System.get_env("GITLAB_SITE", "https://gitlab.com"))
+            |> Map.put("priority", extract_priority(env.body))
             |> Map.put("comments", extract_comments(issue))
 
           {:ok, enhanced_issue}
@@ -255,6 +276,31 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
         "createdAt" => &1["createdAt"]
       }
     )
+  end
+
+  # Work items share the numeric id of the issue they represent.
+  defp work_item_id("gid://gitlab/Issue/" <> id), do: "gid://gitlab/WorkItem/" <> id
+  defp work_item_id(issue_id), do: issue_id
+
+  # Reads the "Priority" single-select custom field out of the work item widgets.
+  # Returns nil when the instance has no custom fields, the field is not defined,
+  # or it is defined but left unset on this issue.
+  defp extract_priority(body) do
+    body
+    |> get_in(["data", "workItem", "widgets"])
+    |> List.wrap()
+    |> Enum.flat_map(&(&1 |> Map.get("customFieldValues") |> List.wrap()))
+    |> Enum.find(&(get_in(&1, ["customField", "name"]) == "Priority"))
+    |> selected_option_value()
+  end
+
+  defp selected_option_value(nil), do: nil
+
+  defp selected_option_value(field_value) do
+    case field_value |> Map.get("selectedOptions") |> List.wrap() do
+      [%{"value" => value} | _] -> value
+      _ -> nil
+    end
   end
 
   # Private helper to normalize REST API response to match GraphQL format

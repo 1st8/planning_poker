@@ -97,6 +97,9 @@ defmodule PlanningPoker.IssueProvider do
   - `"descriptionHtml"` (string) - HTML-formatted description
   - `"author"` (map) - Author information with `"name"` field
   - `"createdAt"` (string) - ISO 8601 timestamp
+  - `"priority"` (string, optional) - Human-readable priority label such as
+    `"High - Next Sprint"`, `nil` when the provider has no such concept or the
+    issue has none set
   - `"epic"` (map, optional) - Epic/parent information with `"title"` and `"reference"` fields
   - `"comments"` (list, optional) - Human-written comments, oldest first, each with
     `"id"`, `"body"` (markdown), `"author"` with a `"name"`, and `"createdAt"`.
