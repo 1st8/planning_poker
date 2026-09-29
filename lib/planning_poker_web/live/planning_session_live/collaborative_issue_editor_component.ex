@@ -276,7 +276,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
       add_tag_attributes: %{
         "input" => ["type", "checked", "disabled"],
         "img" => ["src", "alt", "title", "width", "height"],
-        "video" => ["controls", "muted", "style", "title", "width", "height"],
+        "video" => ["src", "controls", "muted", "style", "title", "width", "height"],
         "source" => ["src", "type"]
       }
     ]
@@ -405,12 +405,10 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
       html,
       fn match, src, alt ->
         if has_video_extension?(src) do
-          type = video_mime_type(src)
           title = if alt != "", do: ~s( title="#{alt}"), else: ""
           size = carried_size_attributes(match)
 
-          ~s(<video controls muted style="max-width: 100%"#{title}#{size}>) <>
-            ~s(<source src="#{src}" type="#{type}" />) <>
+          ~s(<video src="#{src}" controls muted style="max-width: 100%"#{title}#{size}>) <>
             ~s(Your browser does not support the video tag.</video>)
         else
           match
@@ -434,19 +432,6 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
     Enum.any?(@video_extensions, &String.ends_with?(downcased, &1))
   end
 
-  defp video_mime_type(url) do
-    path = url |> URI.parse() |> Map.get(:path, url) || url
-    downcased = String.downcase(path)
-
-    cond do
-      String.ends_with?(downcased, ".mp4") -> "video/mp4"
-      String.ends_with?(downcased, ".webm") -> "video/webm"
-      String.ends_with?(downcased, ".mov") -> "video/quicktime"
-      String.ends_with?(downcased, ".ogg") -> "video/ogg"
-      true -> "video/mp4"
-    end
-  end
-
   # Re-process content inside a <details> block.
   # Look for unrendered markdown image syntax and render it.
   defp reprocess_details_content(inner_html) do
@@ -456,10 +441,12 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
       case Regex.run(~r/^(\s*<summary>.*?<\/summary>)(.*)$/s, inner_html) do
         [_full, summary, rest] ->
           # Re-render the rest as markdown
-          rerendered = rest
+          rerendered =
+            rest
             |> fix_image_urls_with_spaces()
             |> apply_image_attributes()
             |> MDEx.to_html!(@mdex_options)
+
           summary <> "\n" <> rerendered
 
         nil ->
