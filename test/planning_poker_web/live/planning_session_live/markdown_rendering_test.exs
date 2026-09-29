@@ -302,7 +302,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MarkdownRenderingTest do
       assert html =~ "controls"
       assert html =~ "muted"
       assert html =~ ~s(max-width: 100%)
-      assert html =~ ~s(<source src="https://example.com/video.mp4" type="video/mp4")
+      assert html =~ ~s(<video src="https://example.com/video.mp4")
       refute html =~ "<img"
     end
 
@@ -312,7 +312,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MarkdownRenderingTest do
       html = render_markdown(markdown)
 
       assert html =~ "<video"
-      assert html =~ ~s(<source src="https://example.com/recording.webm" type="video/webm")
+      assert html =~ ~s(<video src="https://example.com/recording.webm")
       assert html =~ ~s(title="screen recording")
       refute html =~ "<img"
     end
@@ -322,8 +322,8 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MarkdownRenderingTest do
 
       html = render_markdown(markdown)
 
-      assert html =~ "<video"
-      assert html =~ ~s(type="video/quicktime")
+      assert html =~ ~s(<video src="https://example.com/clip.mov")
+      refute html =~ "type="
       refute html =~ "<img"
     end
 
@@ -332,8 +332,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MarkdownRenderingTest do
 
       html = render_markdown(markdown)
 
-      assert html =~ "<video"
-      assert html =~ ~s(type="video/ogg")
+      assert html =~ ~s(<video src="https://example.com/clip.ogg")
       refute html =~ "<img"
     end
 
@@ -352,7 +351,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.MarkdownRenderingTest do
       html = render_markdown(markdown)
 
       assert html =~ "<video"
-      assert html =~ ~s(<source src="https://example.com/video.mp4?token=abc123")
+      assert html =~ ~s(<video src="https://example.com/video.mp4?token=abc123")
       refute html =~ "<img"
     end
 

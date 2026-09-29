@@ -122,8 +122,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
     test "carries width and height over to converted video tags" do
       html = render_markdown("![Clip](media/clip.mp4){width=320 height=240}")
 
-      assert html =~ "<video"
-      assert html =~ ~s(<source src="media/clip.mp4" type="video/mp4")
+      assert html =~ ~s(<video src="media/clip.mp4")
       assert html =~ ~s(width="320")
       assert html =~ ~s(height="240")
     end
