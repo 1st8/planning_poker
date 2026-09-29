@@ -441,10 +441,12 @@ defmodule PlanningPokerWeb.PlanningSessionLive.CollaborativeIssueEditorComponent
       case Regex.run(~r/^(\s*<summary>.*?<\/summary>)(.*)$/s, inner_html) do
         [_full, summary, rest] ->
           # Re-render the rest as markdown
-          rerendered = rest
+          rerendered =
+            rest
             |> fix_image_urls_with_spaces()
             |> apply_image_attributes()
             |> MDEx.to_html!(@mdex_options)
+
           summary <> "\n" <> rerendered
 
         nil ->
