@@ -93,7 +93,8 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
   @doc """
   Fetches issues from a GitLab group by label.
 
-  Returns open issues without weight (unestimated) matching the configured label.
+  Returns open issues without weight (unestimated) matching the configured label,
+  in the order they appear on the GitLab issue board.
 
   ## Options
 
@@ -121,6 +122,8 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
         "labels" => label,
         "state" => "opened",
         "weight" => "None",
+        "order_by" => "relative_position",
+        "sort" => "asc",
         "per_page" => "100"
       })
 
