@@ -101,6 +101,9 @@ defmodule PlanningPoker.IssueProvider do
     `"High - Next Sprint"`, `nil` when the provider has no such concept or the
     issue has none set
   - `"epic"` (map, optional) - Epic/parent information with `"title"` and `"reference"` fields
+  - `"milestone"` (map, optional) - Milestone with a `"title"`, `nil` when none is set
+  - `"labels"` (list, optional) - Labels, each with a `"title"` and optionally
+    `"color"` and `"textColor"` as hex codes such as `"#428BCA"`
   - `"comments"` (list, optional) - Human-written comments, oldest first, each with
     `"id"`, `"body"` (markdown), `"author"` with a `"name"`, and `"createdAt"`.
     Activity entries the provider generates itself are not included.

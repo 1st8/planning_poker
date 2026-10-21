@@ -9,7 +9,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.VotingComponent do
     ~H"""
     <main>
       <.layout_box title="Voting">
-        <hgroup>
+        <header>
           <h1 class="text-4xl font-semibold">
             <a
               class="underline decoration-primary hover:decoration-primary/50 decoration-4"
@@ -20,7 +20,8 @@ defmodule PlanningPokerWeb.PlanningSessionLive.VotingComponent do
             </a>
           </h1>
           <.issue_byline issue={@issue} comments_anchor="issue-comments" />
-        </hgroup>
+          <.issue_tags issue={@issue} />
+        </header>
         
     <!-- Collaborative Issue Editor -->
         <.live_component

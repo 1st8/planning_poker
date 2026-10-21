@@ -136,10 +136,9 @@ defmodule PlanningPokerWeb.PlanningComponents do
       assigns
       |> assign(:text, byline_text(assigns.issue))
       |> assign(:comment_label, comment_count_label(assigns.issue))
-      |> assign(:priority, assigns.issue["priority"])
 
     ~H"""
-    <p :if={@text || @comment_label || @priority} class={@class}>
+    <p :if={@text || @comment_label} class={@class}>
       <span :if={@text}>{@text}</span>
       <span :if={@text && @comment_label} aria-hidden="true">·</span>
       <a
@@ -151,7 +150,6 @@ defmodule PlanningPokerWeb.PlanningComponents do
         {@comment_label}
       </a>
       <span :if={@comment_label && !@comments_anchor}>{@comment_label}</span>
-      <.issue_priority_badge issue={@issue} />
     </p>
     """
   end
@@ -169,11 +167,59 @@ defmodule PlanningPokerWeb.PlanningComponents do
     assigns = assign(assigns, :priority, assigns.issue["priority"])
 
     ~H"""
-    <span :if={@priority} class={["badge badge-sm", priority_badge_class(@priority), @class]}>
+    <span
+      :if={@priority}
+      class={["badge badge-sm", priority_badge_class(@priority), @class]}
+      title="Priority"
+    >
       <span class="sr-only">Priority:</span>
       {@priority}
     </span>
     """
+  end
+
+  @doc """
+  Renders the issue's priority, milestone and labels on one line, and nothing
+  at all when the issue has none of them.
+
+  Labels keep the colours the provider assigned them, so they are recognisable
+  from the issue tracker.
+  """
+  attr :issue, :map, required: true
+  attr :class, :string, default: "mt-2 flex flex-wrap items-center gap-2 text-sm"
+
+  def issue_tags(assigns) do
+    assigns =
+      assigns
+      |> assign(:priority, assigns.issue["priority"])
+      |> assign(:milestone, get_in(assigns.issue, ["milestone", "title"]))
+      |> assign(:labels, List.wrap(assigns.issue["labels"]))
+
+    ~H"""
+    <p :if={@priority || @milestone || @labels != []} class={@class}>
+      <.issue_priority_badge issue={@issue} />
+      <span :if={@milestone} class="badge badge-sm badge-outline" title="Milestone">
+        <span class="sr-only">Milestone:</span>
+        {@milestone}
+      </span>
+      <span
+        :for={label <- @labels}
+        class="badge badge-sm"
+        style={label_style(label)}
+        title="Label"
+      >
+        {label["title"]}
+      </span>
+    </p>
+    """
+  end
+
+  # The colours come from the provider and end up in a style attribute, so
+  # anything that is not a plain hex code is left out rather than passed on.
+  defp label_style(label) do
+    [{"background-color", label["color"]}, {"color", label["textColor"]}]
+    |> Enum.filter(fn {_, value} -> is_binary(value) and value =~ ~r/\A#[0-9a-fA-F]{3,8}\z/ end)
+    |> Enum.map_join(" ", fn {property, value} -> "#{property}: #{value};" end)
   end
 
   # The provider supplies the option label verbatim: "Urgent - ASAP",

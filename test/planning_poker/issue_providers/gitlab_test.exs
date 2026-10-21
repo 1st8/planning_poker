@@ -82,6 +82,8 @@ defmodule PlanningPoker.IssueProviders.GitlabTest do
       "webUrl" => "https://gitlab.example/tixxt/core/-/issues/483"
     }
 
+    issue = Map.merge(issue, Keyword.get(opts, :fields, %{}))
+
     issue =
       case Keyword.fetch(opts, :notes) do
         {:ok, notes} -> Map.put(issue, "notes", %{"nodes" => notes})
@@ -257,6 +259,44 @@ defmodule PlanningPoker.IssueProviders.GitlabTest do
       assert {:ok, issue} = fetch_issue(graphql_issue())
 
       assert issue["comments"] == []
+    end
+  end
+
+  describe "fetch_issue/3 milestone and labels" do
+    defp label(title, color \\ "#428BCA") do
+      %{"title" => title, "color" => color, "textColor" => "#FFFFFF"}
+    end
+
+    test "carries the milestone through" do
+      assert {:ok, issue} =
+               fetch_issue(graphql_issue(fields: %{"milestone" => %{"title" => "26.4"}}))
+
+      assert issue["milestone"] == %{"title" => "26.4"}
+    end
+
+    test "flattens the labels with their colours" do
+      labels = [label("bug", "#D9534F"), label("frontend")]
+
+      assert {:ok, issue} =
+               fetch_issue(graphql_issue(fields: %{"labels" => %{"nodes" => labels}}))
+
+      assert issue["labels"] == labels
+    end
+
+    test "leaves out the label the issues were selected by" do
+      labels = [label("Backlog::Planning"), label("bug")]
+
+      assert {:ok, issue} =
+               fetch_issue(graphql_issue(fields: %{"labels" => %{"nodes" => labels}}))
+
+      assert Enum.map(issue["labels"], & &1["title"]) == ["bug"]
+    end
+
+    test "yields no labels and no milestone when the issue has neither" do
+      assert {:ok, issue} = fetch_issue(graphql_issue(fields: %{"milestone" => nil}))
+
+      assert issue["labels"] == []
+      assert issue["milestone"] == nil
     end
   end
 
