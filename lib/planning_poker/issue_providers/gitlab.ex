@@ -57,6 +57,16 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
           title
           reference: reference(full: true)
         }
+        milestone {
+          title
+        }
+        labels {
+          nodes {
+            title
+            color
+            textColor
+          }
+        }
         author {
           name
         }
@@ -193,6 +203,7 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
             |> Map.put(:base_url, System.get_env("GITLAB_SITE", "https://gitlab.com"))
             |> Map.put("priority", extract_priority(env.body))
             |> Map.put("comments", extract_comments(issue))
+            |> Map.put("labels", extract_labels(issue))
 
           {:ok, enhanced_issue}
         else
@@ -279,6 +290,17 @@ defmodule PlanningPoker.IssueProviders.Gitlab do
         "createdAt" => &1["createdAt"]
       }
     )
+  end
+
+  # Every issue in a session carries the label it was selected by, so showing
+  # it would only add noise to each one.
+  defp extract_labels(issue) do
+    planning_label = System.get_env("GITLAB_LABEL", "Backlog::Planning")
+
+    issue
+    |> get_in(["labels", "nodes"])
+    |> List.wrap()
+    |> Enum.reject(&(&1["title"] == planning_label))
   end
 
   # Work items share the numeric id of the issue they represent.

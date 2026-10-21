@@ -74,7 +74,7 @@ defmodule PlanningPokerWeb.PlanningComponentsTest do
       refute html =~ "Created"
     end
 
-    test "carries the priority badge on the same line" do
+    test "leaves the priority to the line below" do
       html =
         render_component(&PlanningComponents.issue_byline/1,
           issue: %{
@@ -85,19 +85,7 @@ defmodule PlanningPokerWeb.PlanningComponentsTest do
         )
 
       assert html =~ "Created on 15 Jan 2024 by Alice Anderson"
-      assert html =~ "Urgent"
-      assert html =~ "badge-error"
-      # one paragraph holding both, rather than a second block below
-      assert html |> String.split("<p") |> length() == 2
-    end
-
-    test "still renders the badge for an issue with a priority but no author or date" do
-      html =
-        render_component(&PlanningComponents.issue_byline/1, issue: %{"priority" => "High"})
-
-      refute html =~ "Created"
-      assert html =~ "High"
-      assert html =~ "badge-warning"
+      refute html =~ "Urgent"
     end
   end
 
@@ -137,6 +125,83 @@ defmodule PlanningPokerWeb.PlanningComponentsTest do
     test "renders nothing when the issue has no priority" do
       assert badge(%{}) == ""
       assert badge(%{"priority" => nil}) == ""
+    end
+  end
+
+  describe "issue_tags/1" do
+    defp tags(issue), do: render_component(&PlanningComponents.issue_tags/1, issue: issue)
+
+    test "puts priority, milestone and labels on one line, in that order" do
+      html =
+        tags(%{
+          "priority" => "Urgent",
+          "milestone" => %{"title" => "v1.2"},
+          "labels" => [%{"title" => "bug"}]
+        })
+
+      assert html =~ "badge-error"
+      assert html |> String.split("<p") |> length() == 2
+
+      text =
+        html |> String.replace(~r/<[^>]*>/, "") |> String.replace(~r/\s+/, " ") |> String.trim()
+
+      assert text == "Priority: Urgent Milestone: v1.2 bug"
+    end
+
+    test "names each element's kind on hover" do
+      html =
+        tags(%{
+          "priority" => "Urgent",
+          "milestone" => %{"title" => "v1.2"},
+          "labels" => [%{"title" => "bug"}, %{"title" => "Tech"}]
+        })
+
+      assert html =~ ~s(title="Priority")
+      assert html =~ ~s(title="Milestone")
+      assert html |> String.split(~s(title="Label")) |> length() == 3
+    end
+
+    test "renders the priority on its own" do
+      html = tags(%{"priority" => "High"})
+
+      assert html =~ "High"
+      assert html =~ "badge-warning"
+    end
+
+    test "renders the milestone" do
+      html = tags(%{"milestone" => %{"title" => "v1.2"}})
+
+      assert html =~ "Milestone:"
+      assert html =~ "v1.2"
+    end
+
+    test "renders each label in its own colours" do
+      html =
+        tags(%{
+          "labels" => [
+            %{"title" => "bug", "color" => "#D9534F", "textColor" => "#FFFFFF"},
+            %{"title" => "frontend", "color" => "#F0AD4E", "textColor" => "#333333"}
+          ]
+        })
+
+      assert html =~ "bug"
+      assert html =~ "background-color: #D9534F; color: #FFFFFF;"
+      assert html =~ "frontend"
+      assert html =~ "background-color: #F0AD4E; color: #333333;"
+      refute html =~ "Milestone:"
+    end
+
+    test "drops a colour that is not a hex code" do
+      html =
+        tags(%{"labels" => [%{"title" => "bug", "color" => "red; position: fixed"}]})
+
+      assert html =~ "bug"
+      refute html =~ "position"
+    end
+
+    test "renders nothing when the issue has neither" do
+      assert tags(%{}) == ""
+      assert tags(%{"priority" => nil, "milestone" => nil, "labels" => []}) == ""
     end
   end
 

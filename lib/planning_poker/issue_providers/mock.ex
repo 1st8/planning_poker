@@ -266,6 +266,10 @@ defmodule PlanningPoker.IssueProviders.Mock do
             "createdAt" => "2024-01-16T08:05:00Z"
           }
         ],
+        "milestone" => %{"title" => "release-26-2"},
+        "labels" => [
+          %{"title" => "Tracker: Feature", "color" => "#428BCA", "textColor" => "#FFFFFF"}
+        ],
         "weight" => nil,
         "epic" => %{
           "title" => "User Management Epic",
@@ -300,6 +304,10 @@ defmodule PlanningPoker.IssueProviders.Mock do
             "createdAt" => "2024-01-17T09:00:00Z"
           }
         ],
+        "milestone" => %{"title" => "slop (develop)"},
+        "labels" => [
+          %{"title" => "Tech", "color" => "#6699CC", "textColor" => "#FFFFFF"}
+        ],
         "weight" => nil
       },
       %{
@@ -328,6 +336,11 @@ defmodule PlanningPoker.IssueProviders.Mock do
         "author" => %{"name" => "Carol Chen"},
         "createdAt" => "2024-01-17T09:15:00Z",
         "priority" => "Medium - Next Version",
+        "milestone" => %{"title" => "release-26-2"},
+        "labels" => [
+          %{"title" => "Tracker: Feature", "color" => "#428BCA", "textColor" => "#FFFFFF"},
+          %{"title" => "Tech", "color" => "#6699CC", "textColor" => "#FFFFFF"}
+        ],
         "weight" => nil,
         "epic" => %{
           "title" => "Communication Features",
@@ -364,6 +377,9 @@ defmodule PlanningPoker.IssueProviders.Mock do
         "author" => %{"name" => "Alice Anderson"},
         "createdAt" => "2024-01-18T11:00:00Z",
         "priority" => "Urgent - ASAP",
+        "labels" => [
+          %{"title" => "Tech", "color" => "#6699CC", "textColor" => "#FFFFFF"}
+        ],
         "weight" => nil,
         "epic" => %{
           "title" => "Technical Debt",
@@ -390,6 +406,7 @@ defmodule PlanningPoker.IssueProviders.Mock do
         "webUrl" => "http://localhost:4000/mock/issues/5",
         "author" => %{"name" => "Bob Builder"},
         "createdAt" => "2024-01-19T15:45:00Z",
+        "milestone" => %{"title" => "slop (develop)"},
         "weight" => nil
       },
       %{

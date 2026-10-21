@@ -7,7 +7,7 @@ defmodule PlanningPokerWeb.PlanningSessionLive.ResultsComponent do
     ~H"""
     <main>
       <.layout_box title="Results">
-        <hgroup>
+        <header>
           <h2 class="text-3xl font-semibold">
             <a
               class="underline decoration-primary hover:decoration-primary/50 decoration-4"
@@ -18,7 +18,8 @@ defmodule PlanningPokerWeb.PlanningSessionLive.ResultsComponent do
             </a>
           </h2>
           <.issue_byline issue={@issue} />
-        </hgroup>
+          <.issue_tags issue={@issue} />
+        </header>
         <div class="flex flex-wrap gap-8 items-center">
           <%= for vote <- @votes do %>
             <% {bg, text} = @classes[vote[:vote]] %>
