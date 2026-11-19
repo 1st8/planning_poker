@@ -11,19 +11,34 @@ defmodule PlanningPokerWeb.PlanningSessionLive.PersonalIssueNotesComponent do
           Personal Notes
         </h2>
         <div class="flex flex-col gap-2">
-          <textarea
+          <input
+            type="text"
             id={"personal-notes-#{@current_issue["id"]}"}
-            class="textarea textarea-bordered w-full h-32 resize-none"
-            placeholder="Write your personal notes for this issue..."
+            class="input w-full"
+            placeholder="Your estimate, e.g. 5 or 3-5"
+            value={get_note(@personal_notes, @current_issue["id"])}
             phx-hook="PersonalIssueNotes"
+            phx-keydown="set_readiness"
+            phx-key="Enter"
+            phx-value-ready={to_string(!@ready?)}
             data-issue-id={@current_issue["id"]}
             data-participant-id={@current_participant[:id]}
             data-magic-mode="true"
+            autocomplete="off"
             autofocus
             phx-mounted={JS.focus()}
-          ><%= get_note(@personal_notes, @current_issue["id"]) %></textarea>
+          />
           <p class="text-xs text-base-content/50">
             Notes are saved locally and only visible to you
+          </p>
+          <%!-- Filled by the PersonalIssueNotes hook; min-h reserves one line so the badge appearing doesn't shift the layout --%>
+          <p
+            id={"personal-notes-badge-#{@current_issue["id"]}"}
+            class="text-xs text-base-content/50 italic min-h-4"
+            aria-live="polite"
+            data-role="magic-parse-badge"
+            phx-update="ignore"
+          >
           </p>
           <button
             class={[
