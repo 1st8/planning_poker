@@ -1,5 +1,5 @@
 // Manages personal notes for issues in localStorage and renders a small
-// "parses as …" badge while the textarea is in magic-estimation mode.
+// "parses as …" badge while the notes field is in magic-estimation mode.
 // Magic-hint collection for consensus is decoupled from this hook — see
 // magic_hints_resync.js, which responds to a server request in
 // :magic_estimation rather than pushing on every keystroke.
@@ -98,15 +98,16 @@ export default {
   },
 
   ensureBadge() {
-    // Place a small muted badge immediately after the textarea. Reuse any
-    // existing badge (e.g. when LV re-renders the textarea in place).
+    // The component renders the badge element server-side (with a reserved
+    // min-height, so it doesn't shift the layout). Fall back to creating it
+    // right after the notes field if it's missing.
     const existingId = `personal-notes-badge-${this.issueId}`;
     let badge = document.getElementById(existingId);
     if (badge) return badge;
 
     badge = document.createElement("p");
     badge.id = existingId;
-    badge.className = "text-xs text-base-content/50 italic";
+    badge.className = "text-xs text-base-content/50 italic min-h-4";
     badge.setAttribute("aria-live", "polite");
     badge.dataset.role = "magic-parse-badge";
     this.el.insertAdjacentElement("afterend", badge);
@@ -119,7 +120,7 @@ export default {
     }
 
     // Gate visibility: only show the badge while the host LV explicitly
-    // marks the textarea as being in magic-estimation mode. The component
+    // marks the field as being in magic-estimation mode. The component
     // itself is only rendered in that state, but the `data-magic-mode`
     // attribute makes the contract explicit and keeps this hook reusable.
     const magicMode = this.el.dataset.magicMode === "true";
